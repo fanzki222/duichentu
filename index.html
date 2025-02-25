@@ -230,11 +230,16 @@
 
         // 生成对称图像
         function generateSymmetry(canvas, type) {
+            if (!canvas || !canvas.parentNode) {
+                console.error('Canvas element is not in the DOM.');
+                return;
+            }
+
             if (isGif) {
                 const gif = new GIF({
                     workers: 2,
                     quality: 10,
-                    workerScript: './gif.worker.js' // 使用本地 worker 脚本
+                    workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
                 });
                 gifFrames.forEach(frame => {
                     const tempCanvas = document.createElement('canvas');
@@ -246,9 +251,14 @@
                     gif.addFrame(tempCanvas, { delay: frame.delay });
                 });
                 gif.on('finished', (blob) => {
-                    const img = document.createElement('img');
-                    img.src = URL.createObjectURL(blob);
-                    canvas.parentNode.replaceChild(img, canvas);
+                    const parent = canvas.parentNode;
+                    if (parent) {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(blob);
+                        parent.replaceChild(img, canvas);
+                    } else {
+                        console.error('Canvas has no parent node.');
+                    }
                 });
                 gif.render();
             } else {
