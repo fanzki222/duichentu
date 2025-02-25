@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片对称生成器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .upload-area {
+            width: 400px;
+            height: 200px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            cursor: pointer;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #666;
+        }
+        .upload-area.dragover {
+            background-color: #e0e0e0;
+            border-color: #999;
+        }
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .preview-item {
+            text-align: center;
+        }
+        .preview-item canvas, .preview-item img {
+            border: 1px solid #ddd;
+            max-width: 300px;
+            max-height: 300px;
+            cursor: pointer;
+        }
+        .preview-item button {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .preview-item button:hover {
+            background-color: #0056b3;
+        }
+        #originalCanvas {
+            cursor: crosshair;
+        }
+        .instructions {
+            max-width: 600px;
+            text-align: center;
+            color: #555;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>图片对称生成器</h1>
+    <div class="instructions">
+        点击下方区域选择图片，支持静态图片和GIF。上传后点击图片选择对称中心点。
+    </div>
+    <div class="upload-area" id="uploadArea">
+        点击此处上传图片
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    <div class="preview-container" id="previewContainer">
+        <div class="preview-item">
+            <canvas id="originalCanvas"></canvas>
+            <p>原始图片</p>
+        </div>
+        <div class="preview-item">
+            <canvas id="horizontalUpCanvas"></canvas>
+            <p>水平上对称</p>
+            <button onclick="copyImage('horizontalUpCanvas')">复制</button>
+            <button onclick="downloadImage('horizontalUpCanvas', 'horizontal_up')">下载</button>
+        </div>
+        <div class="preview-item">
+            <canvas id="horizontalDownCanvas"></canvas>
+            <p>水平下对称</p>
+            <button onclick="copyImage('horizontalDownCanvas')">复制</button>
+            <button onclick="downloadImage('horizontalDownCanvas', 'horizontal_down')">下载</button>
+        </div>
+        <div class="preview-item">
+            <canvas id="verticalLeftCanvas"></canvas>
+            <p>垂直左对称</p>
+            <button onclick="copyImage('verticalLeftCanvas')">复制</button>
+            <button onclick="downloadImage('verticalLeftCanvas', 'vertical_left')">下载</button>
+        </div>
+        <div class="preview-item">
+            <canvas id="verticalRightCanvas"></canvas>
+            <p>垂直右对称</p>
+            <button onclick="copyImage('verticalRightCanvas')">复制</button>
+            <button onclick="downloadImage('verticalRightCanvas', 'vertical_right')">下载</button>
+        </div>
+    </div>
+
+    <!-- 外部库 CDN 链接 -->
+    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const horizontalUpCanvas = document.getElementById('horizontalUpCanvas');
+        const horizontalDownCanvas = document.getElementById('horizontalDownCanvas');
+        const verticalLeftCanvas = document.getElementById('verticalLeftCanvas');
+        const verticalRightCanvas = document.getElementById('verticalRightCanvas');
+
+        let originalImage = new Image();
+        let centerX, centerY;
+        let isGif = false;
+        let gifFrames = [];
+        let arrayBuffer;
+
+        // 文件上传相关事件
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                processFile(file);
+            }
+        });
+
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const file = item.getAsFile();
+                    processFile(file);
+                    break;
+                }
+            }
+        });
+
+        // 处理上传的文件
+        async function processFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('请上传图片文件！');
+                return;
+            }
+            isGif = file.type === 'image/gif';
+            arrayBuffer = await file.arrayBuffer();
+            if (isGif) {
+                processGIF(arrayBuffer);
+            } else {
+                originalImage.src = URL.createObjectURL(file);
+            }
+        }
+
+        // 静态图片加载完成后的处理
+        originalImage.onload = () => {
+            const width = originalImage.width;
+            const height = originalImage.height;
+            originalCanvas.width = width;
+            originalCanvas.height = height;
+            centerX = width / 2;
+            centerY = height / 2;
+            updatePreviews();
+        };
+
+        // 用户点击选择对称中心点
+        originalCanvas.addEventListener('click', (e) => {
+            const rect = originalCanvas.getBoundingClientRect();
+            const scaleX = originalCanvas.width / rect.width;
+            const scaleY = originalCanvas.height / rect.height;
+            centerX = (e.clientX - rect.left) * scaleX;
+            centerY = (e.clientY - rect.top) * scaleY;
+            if (isGif) {
+                processGIF(arrayBuffer);
+            } else {
+                updatePreviews();
+            }
+        });
+
+        // 更新所有预览
+        function updatePreviews() {
+            const ctxOriginal = originalCanvas.getContext('2d');
+            ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+            ctxOriginal.drawImage(originalImage, 0, 0);
+            drawCenterPoint(ctxOriginal);
+
+            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
+            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
+            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
+            generateSymmetry(verticalRightCanvas, 'verticalRight');
+        }
+
+        // 绘制对称中心点
+        function drawCenterPoint(ctx) {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+        }
+
+        // 生成对称图像
+        function generateSymmetry(canvas, type) {
+            if (isGif) {
+                const gif = new GIF({
+                    workers: 2,
+                    quality: 10,
+                    workerScript: './gif.worker.js' // 使用本地 worker 脚本
+                });
+                gifFrames.forEach(frame => {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = originalCanvas.width;
+                    tempCanvas.height = originalCanvas.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.putImageData(frame.imageData, 0, 0);
+                    applySymmetry(tempCtx, type);
+                    gif.addFrame(tempCanvas, { delay: frame.delay });
+                });
+                gif.on('finished', (blob) => {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(blob);
+                    canvas.parentNode.replaceChild(img, canvas);
+                });
+                gif.render();
+            } else {
+                const originalWidth = originalImage.width;
+                const originalHeight = originalImage.height;
+                let newWidth = originalWidth;
+                let newHeight = originalHeight;
+
+                switch (type) {
+                    case 'horizontalUp':
+                        newHeight = centerY * 2;
+                        break;
+                    case 'horizontalDown':
+                        newHeight = (originalHeight - centerY) * 2;
+                        break;
+                    case 'verticalLeft':
+                        newWidth = centerX * 2;
+                        break;
+                    case 'verticalRight':
+                        newWidth = (originalWidth - centerX) * 2;
+                        break;
+                }
+
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, newWidth, newHeight);
+                applySymmetry(ctx, type);
+            }
+        }
+
+        // 应用对称变换
+        function applySymmetry(ctx, type) {
+            const originalWidth = isGif ? originalCanvas.width : originalImage.width;
+            const originalHeight = isGif ? originalCanvas.height : originalImage.height;
+            let newWidth = ctx.canvas.width;
+            let newHeight = ctx.canvas.height;
+
+            ctx.save();
+            switch (type) {
+                case 'horizontalUp':
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                    ctx.scale(1, -1);
+                    ctx.translate(0, -newHeight);
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                    break;
+                case 'horizontalDown':
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, 0, centerY, originalWidth, originalHeight - centerY, 0, newHeight / 2, originalWidth, originalHeight - centerY);
+                    ctx.scale(1, -1);
+                    ctx.translate(0, -newHeight / 2);
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, 0, centerY, originalWidth, originalHeight - centerY, 0, 0, originalWidth, originalHeight - centerY);
+                    break;
+                case 'verticalLeft':
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                    ctx.scale(-1, 1);
+                    ctx.translate(-newWidth, 0);
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                    break;
+                case 'verticalRight':
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, centerX, 0, originalWidth - centerX, originalHeight, newWidth / 2, 0, originalWidth - centerX, originalHeight);
+                    ctx.scale(-1, 1);
+                    ctx.translate(-newWidth / 2, 0);
+                    ctx.drawImage(isGif ? originalCanvas : originalImage, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
+                    break;
+            }
+            ctx.restore();
+        }
+
+        // 处理GIF文件
+        function processGIF(arrayBuffer) {
+            const reader = new GifReader(new Uint8Array(arrayBuffer));
+            const numFrames = reader.numFrames();
+            const width = reader.width;
+            const height = reader.height;
+            originalCanvas.width = width;
+            originalCanvas.height = height;
+
+            gifFrames = [];
+            for (let i = 0; i < numFrames; i++) {
+                const frameInfo = reader.frameInfo(i);
+                const imageData = new ImageData(width, height);
+                reader.decodeAndBlitFrameRGBA(i, imageData.data);
+                gifFrames.push({ imageData, delay: frameInfo.delay * 10 });
+            }
+
+            const ctxOriginal = originalCanvas.getContext('2d');
+            ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+            drawCenterPoint(ctxOriginal);
+
+            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
+            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
+            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
+            generateSymmetry(verticalRightCanvas, 'verticalRight');
+        }
+
+        // 复制图像到剪切板
+        function copyImage(canvasId) {
+            const element = document.getElementById(canvasId);
+            if (element.tagName === 'CANVAS') {
+                element.toBlob(blob => {
+                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+                        .then(() => alert('图片已复制到剪切板！'))
+                        .catch(err => alert('复制失败：' + err));
+                });
+            } else {
+                fetch(element.src)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+                            .then(() => alert('图片已复制到剪切板！'))
+                            .catch(err => alert('复制失败：' + err));
+                    });
+            }
+        }
+
+        // 下载图像
+        function downloadImage(canvasId, filename) {
+            const element = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = `${filename}.${isGif ? 'gif' : 'png'}`;
+            if (element.tagName === 'CANVAS') {
+                link.href = element.toDataURL('image/png');
+            } else {
+                link.href = element.src;
+            }
+            link.click();
+        }
+    </script>
+</body>
+</html>
