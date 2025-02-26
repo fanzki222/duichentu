@@ -392,21 +392,12 @@
 
         // 修改 generateSymmetry 函数的开头部分，添加更强的安全检查
         function generateSymmetry(canvas, type) {
-            // 尝试获取元素（如果传入的是ID而不是元素）
             if (typeof canvas === 'string') {
                 canvas = document.getElementById(canvas);
             }
             
-            // 检查画布是否存在
-            if (!canvas) {
-                console.error(`画布元素不存在: ${type}`);
-                return false;
-            }
-            
-            // 获取父元素
-            const parent = canvas.parentNode;
-            if (!parent) {
-                console.error(`画布元素没有父节点: ${canvas.id}`);
+            if (!canvas || !canvas.parentNode) {
+                console.error(`画布元素不存在或无效: ${type}`);
                 return false;
             }
             
@@ -415,10 +406,11 @@
                     const gif = new GIF({
                         workers: 2,
                         quality: 10,
+                        background: '#FFFFFF',  // 设置白色背景
+                        transparent: null,      // 禁用透明
                         workerScript: './gif.worker.js'
                     });
                     
-                    // 检查 gifFrames 是否有效
                     if (!gifFrames || gifFrames.length === 0) {
                         console.error('No GIF frames available');
                         return;
@@ -427,7 +419,6 @@
                     const originalWidth = originalCanvas.width;
                     const originalHeight = originalCanvas.height;
                     
-                    // 确保原始尺寸有效
                     if (originalWidth <= 0 || originalHeight <= 0) {
                         console.error('Invalid original canvas dimensions:', originalWidth, originalHeight);
                         return;
@@ -452,25 +443,32 @@
                             break;
                     }
                     
-                    // 设置目标画布尺寸
                     canvas.width = newWidth;
                     canvas.height = newHeight;
                     
                     // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
-                            // 创建临时画布来处理每一帧
                             const tempCanvas = document.createElement('canvas');
                             tempCanvas.width = newWidth;
                             tempCanvas.height = newHeight;
                             const tempCtx = tempCanvas.getContext('2d');
                             
-                            // 创建并填充原始帧画布
+                            // 设置白色背景
+                            tempCtx.fillStyle = '#FFFFFF';
+                            tempCtx.fillRect(0, 0, newWidth, newHeight);
+                            
+                            // 创建临时画布来处理原始帧
                             const originalTempCanvas = document.createElement('canvas');
                             originalTempCanvas.width = originalWidth;
                             originalTempCanvas.height = originalHeight;
                             const originalTempCtx = originalTempCanvas.getContext('2d');
                             
+                            // 先填充白色背景
+                            originalTempCtx.fillStyle = '#FFFFFF';
+                            originalTempCtx.fillRect(0, 0, originalWidth, originalHeight);
+                            
+                            // 将帧数据绘制到临时画布
                             if (frame.imageData && frame.imageData.data) {
                                 originalTempCtx.putImageData(frame.imageData, 0, 0);
                             } else {
@@ -526,27 +524,18 @@
                             img.style.border = '1px solid #ddd';
                             img.style.cursor = 'pointer';
                             
-                            // 确保父元素仍然存在
                             const currentParent = canvas.parentNode;
                             if (currentParent) {
                                 currentParent.replaceChild(img, canvas);
-                            } else {
-                                console.error('Canvas parent no longer exists when replacing with image');
                             }
                         } catch (replaceError) {
                             console.error('Error replacing canvas with image', replaceError);
                         }
                     });
                     
-                    // 添加错误处理
-                    gif.on('abort', (error) => {
-                        console.error('GIF rendering aborted:', error);
-                    });
-                    
-                    // 开始渲染
                     gif.render();
-                } catch (gifError) {
-                    console.error('Error initializing GIF processor:', gifError);
+                } catch (error) {
+                    console.error('Error processing GIF:', error);
                 }
             } else {
                 // 静态图像处理代码保持不变
