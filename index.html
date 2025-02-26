@@ -404,10 +404,10 @@
             if (isGif) {
                 try {
                     const gif = new GIF({
-                        workers: 2,
-                        quality: 10,
-                        // 移除白色背景设置
-                        // 保持透明度
+                        workers: 4,               // 增加worker数量
+                        quality: 1,              // 提高质量（1是最好的质量）
+                        dither: false,           // 禁用抖动
+                        transparent: 0x00FF00,   // 使用绿色作为透明色
                         workerScript: './gif.worker.js'
                     });
                     
@@ -451,27 +451,44 @@
                             tempCanvas.width = newWidth;
                             tempCanvas.height = newHeight;
                             const tempCtx = tempCanvas.getContext('2d', {
-                                willReadFrequently: true
+                                willReadFrequently: true,
+                                alpha: true  // 确保支持透明度
                             });
-                            
-                            // 移除白色背景填充
                             
                             const originalTempCanvas = document.createElement('canvas');
                             originalTempCanvas.width = originalWidth;
                             originalTempCanvas.height = originalHeight;
                             const originalTempCtx = originalTempCanvas.getContext('2d', {
-                                willReadFrequently: true
+                                willReadFrequently: true,
+                                alpha: true  // 确保支持透明度
                             });
                             
-                            // 移除白色背景填充
-                            
+                            // 处理原始帧数据
                             if (frame.imageData && frame.imageData.data) {
-                                originalTempCtx.putImageData(frame.imageData, 0, 0);
+                                // 创建新的ImageData来存储处理后的数据
+                                const processedImageData = new ImageData(
+                                    new Uint8ClampedArray(frame.imageData.data), 
+                                    originalWidth, 
+                                    originalHeight
+                                );
+                                
+                                // 处理透明度
+                                for (let j = 0; j < processedImageData.data.length; j += 4) {
+                                    const alpha = processedImageData.data[j + 3];
+                                    if (alpha < 128) {  // 如果透明度小于128，设为完全透明
+                                        processedImageData.data[j + 3] = 0;
+                                    } else {  // 否则设为完全不透明
+                                        processedImageData.data[j + 3] = 255;
+                                    }
+                                }
+                                
+                                originalTempCtx.putImageData(processedImageData, 0, 0);
                             } else {
                                 console.error('Invalid frame data for frame', frameIndex);
                                 return;
                             }
                             
+                            // 应用对称变换
                             tempCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
@@ -501,9 +518,11 @@
                             }
                             tempCtx.restore();
                             
-                            gif.addFrame(tempCanvas, { 
+                            // 添加帧到GIF
+                            gif.addFrame(tempCanvas, {
                                 delay: frame.delay,
-                                transparent: true
+                                transparent: true,
+                                dispose: 2  // 使用恢复到背景色的处置方法
                             });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
