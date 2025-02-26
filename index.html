@@ -406,8 +406,8 @@
                     const gif = new GIF({
                         workers: 2,
                         quality: 10,
-                        background: '#FFFFFF',  // 设置白色背景
-                        transparent: null,      // 禁用透明
+                        // 移除白色背景设置
+                        // 保持透明度
                         workerScript: './gif.worker.js'
                     });
                     
@@ -427,7 +427,6 @@
                     let newWidth = originalWidth;
                     let newHeight = originalHeight;
 
-                    // 根据对称类型计算新的尺寸
                     switch (type) {
                         case 'horizontalUp':
                             newHeight = Math.max(1, centerY * 2);
@@ -446,29 +445,26 @@
                     canvas.width = newWidth;
                     canvas.height = newHeight;
                     
-                    // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
                             const tempCanvas = document.createElement('canvas');
                             tempCanvas.width = newWidth;
                             tempCanvas.height = newHeight;
-                            const tempCtx = tempCanvas.getContext('2d');
+                            const tempCtx = tempCanvas.getContext('2d', {
+                                willReadFrequently: true
+                            });
                             
-                            // 设置白色背景
-                            tempCtx.fillStyle = '#FFFFFF';
-                            tempCtx.fillRect(0, 0, newWidth, newHeight);
+                            // 移除白色背景填充
                             
-                            // 创建临时画布来处理原始帧
                             const originalTempCanvas = document.createElement('canvas');
                             originalTempCanvas.width = originalWidth;
                             originalTempCanvas.height = originalHeight;
-                            const originalTempCtx = originalTempCanvas.getContext('2d');
+                            const originalTempCtx = originalTempCanvas.getContext('2d', {
+                                willReadFrequently: true
+                            });
                             
-                            // 先填充白色背景
-                            originalTempCtx.fillStyle = '#FFFFFF';
-                            originalTempCtx.fillRect(0, 0, originalWidth, originalHeight);
+                            // 移除白色背景填充
                             
-                            // 将帧数据绘制到临时画布
                             if (frame.imageData && frame.imageData.data) {
                                 originalTempCtx.putImageData(frame.imageData, 0, 0);
                             } else {
@@ -476,7 +472,6 @@
                                 return;
                             }
                             
-                            // 应用对称变换
                             tempCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
@@ -506,14 +501,15 @@
                             }
                             tempCtx.restore();
                             
-                            // 添加处理后的帧到GIF
-                            gif.addFrame(tempCanvas, { delay: frame.delay });
+                            gif.addFrame(tempCanvas, { 
+                                delay: frame.delay,
+                                transparent: true
+                            });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
                         }
                     });
                     
-                    // 当GIF渲染完成后替换画布
                     gif.on('finished', (blob) => {
                         try {
                             const img = document.createElement('img');
