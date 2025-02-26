@@ -131,6 +131,7 @@
         let isGif = false;
         let gifFrames = [];
         let arrayBuffer;
+        let originalGifData = null;
 
         // 文件上传相关事件
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -230,7 +231,7 @@
             return true;
         }
 
-        // 修改 processFile 函数，增加文件格式检测
+        // 修改 processFile 函数，保存原始GIF数据
         async function processFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 alert('请上传图片文件！');
@@ -256,6 +257,11 @@
             
             if (isActuallyGif && file.type !== 'image/gif') {
                 console.log('检测到文件实际为GIF格式，尽管MIME类型为:', file.type);
+            }
+            
+            // 保存原始GIF数据的副本
+            if (isGif) {
+                originalGifData = new Uint8Array(arrayBuffer.slice(0));
             }
             
             // 使用延迟确保DOM操作完成
@@ -312,8 +318,12 @@
                             ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
                             drawCenterPoint(ctxOriginal);
                             
-                            // 重新处理GIF
-                            processGIF(arrayBuffer);
+                            // 使用原始GIF数据重新处理
+                            if (originalGifData) {
+                                processGIF(originalGifData.buffer);
+                            } else {
+                                console.error('没有可用的原始GIF数据');
+                            }
                         } else {
                             console.error('没有可用的GIF帧');
                         }
@@ -605,13 +615,34 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数，确保在生成对称预览前检查所有画布
+        // 修改 processGIF 函数，增加数据有效性验证
         function processGIF(arrayBuffer) {
             try {
                 // 确保所有画布都已恢复
                 restoreCanvases();
                 
-                const reader = new GifReader(new Uint8Array(arrayBuffer));
+                // 检查是否有有效的GIF数据
+                let gifData;
+                if (originalGifData) {
+                    // 优先使用保存的原始GIF数据
+                    gifData = originalGifData;
+                } else {
+                    // 否则使用传入的arrayBuffer
+                    gifData = new Uint8Array(arrayBuffer);
+                }
+                
+                // 验证数据是否为有效GIF
+                if (gifData.length < 6 || 
+                    gifData[0] !== 71 || gifData[1] !== 73 || 
+                    gifData[2] !== 70 || gifData[3] !== 56 || 
+                    (gifData[4] !== 55 && gifData[4] !== 57) || 
+                    gifData[5] !== 97) {
+                    console.error('无效的GIF数据');
+                    return;
+                }
+                
+                // 创建新的GIF读取器
+                const reader = new GifReader(gifData);
                 const numFrames = reader.numFrames();
                 const width = reader.width;
                 const height = reader.height;
