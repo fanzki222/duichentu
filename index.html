@@ -717,7 +717,7 @@
             }
         }
 
-        // 复制图像到剪切板
+        // 修改 copyImage 函数，正确处理不同的图像类型
         function copyImage(canvasId) {
             const element = document.getElementById(canvasId) || document.getElementById(canvasId + 'Img');
             if (!element) {
@@ -726,18 +726,29 @@
             }
             
             if (element.tagName === 'CANVAS') {
+                // 对于画布元素，总是使用PNG格式
                 element.toBlob(blob => {
                     navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
                         .then(() => alert('图片已复制到剪切板！'))
                         .catch(err => alert('复制失败：' + err));
                 });
-            } else {
+            } else if (element.tagName === 'IMG') {
+                // 对于图片元素，需要判断是否为GIF
                 fetch(element.src)
                     .then(res => res.blob())
                     .then(blob => {
-                        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+                        // 根据blob的实际类型创建正确的ClipboardItem
+                        const type = blob.type;
+                        const clipboardItem = {};
+                        clipboardItem[type] = blob;
+                        
+                        navigator.clipboard.write([new ClipboardItem(clipboardItem)])
                             .then(() => alert('图片已复制到剪切板！'))
                             .catch(err => alert('复制失败：' + err));
+                    })
+                    .catch(err => {
+                        console.error('获取图片blob时出错:', err);
+                        alert('复制失败：无法获取图片数据');
                     });
             }
         }
