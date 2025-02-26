@@ -167,12 +167,37 @@
             }
         });
 
+        // 添加恢复 canvas 元素的函数
+        function restoreCanvases() {
+            const previewItems = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
+            
+            for (const id of previewItems) {
+                const imgElement = document.getElementById(id + 'Img');
+                if (imgElement) {
+                    const canvas = document.createElement('canvas');
+                    canvas.id = id;
+                    canvas.style.maxWidth = '300px';
+                    canvas.style.maxHeight = '300px';
+                    canvas.style.border = '1px solid #ddd';
+                    canvas.style.cursor = 'pointer';
+                    
+                    // 替换图片元素
+                    const parent = imgElement.parentNode;
+                    parent.replaceChild(canvas, imgElement);
+                }
+            }
+        }
+
         // 处理上传的文件
         async function processFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 alert('请上传图片文件！');
                 return;
             }
+            
+            // 恢复所有 canvas 元素
+            restoreCanvases();
+            
             isGif = file.type === 'image/gif';
             arrayBuffer = await file.arrayBuffer();
             if (isGif) {
@@ -193,13 +218,17 @@
             updatePreviews();
         };
 
-        // 用户点击选择对称中心点
+        // 修改 originalCanvas 的点击事件处理程序
         originalCanvas.addEventListener('click', (e) => {
             const rect = originalCanvas.getBoundingClientRect();
             const scaleX = originalCanvas.width / rect.width;
             const scaleY = originalCanvas.height / rect.height;
             centerX = (e.clientX - rect.left) * scaleX;
             centerY = (e.clientY - rect.top) * scaleY;
+            
+            // 恢复所有 canvas 元素
+            restoreCanvases();
+            
             if (isGif) {
                 processGIF(arrayBuffer);
             } else {
@@ -399,8 +428,11 @@
             ctx.restore();
         }
 
-        // 处理GIF文件
+        // 修改 processGIF 函数开头
         function processGIF(arrayBuffer) {
+            // 确保所有画布都已恢复
+            restoreCanvases();
+            
             const reader = new GifReader(new Uint8Array(arrayBuffer));
             const numFrames = reader.numFrames();
             const width = reader.width;
