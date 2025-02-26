@@ -242,11 +242,15 @@
             
             isGif = file.type === 'image/gif';
             arrayBuffer = await file.arrayBuffer();
-            if (isGif) {
-                processGIF(arrayBuffer);
-            } else {
-                originalImage.src = URL.createObjectURL(file);
-            }
+            
+            // 使用延迟确保DOM操作完成
+            setTimeout(() => {
+                if (isGif) {
+                    processGIF(arrayBuffer);
+                } else {
+                    originalImage.src = URL.createObjectURL(file);
+                }
+            }, 50);
         }
 
         // 静态图片加载完成后的处理
@@ -257,7 +261,14 @@
             originalCanvas.height = height;
             centerX = width / 2;
             centerY = height / 2;
-            updatePreviews();
+            
+            // 确保所有画布元素都已初始化并添加到DOM中
+            restoreCanvases();
+            
+            // 添加短延迟确保DOM操作完成
+            setTimeout(() => {
+                updatePreviews();
+            }, 50);
         };
 
         // 修改原始画布的点击处理
@@ -307,6 +318,39 @@
             ctxOriginal.drawImage(originalImage, 0, 0);
             drawCenterPoint(ctxOriginal);
 
+            // 获取所有画布元素并验证它们
+            const horizontalUpCanvas = document.getElementById('horizontalUpCanvas');
+            const horizontalDownCanvas = document.getElementById('horizontalDownCanvas');
+            const verticalLeftCanvas = document.getElementById('verticalLeftCanvas');
+            const verticalRightCanvas = document.getElementById('verticalRightCanvas');
+            
+            // 验证所有画布元素是否有效
+            const allCanvasValid = [horizontalUpCanvas, horizontalDownCanvas, verticalLeftCanvas, verticalRightCanvas]
+                .every(canvas => canvas && canvas.parentNode);
+            
+            if (!allCanvasValid) {
+                console.warn('静态图像处理：有画布元素缺失，尝试恢复...');
+                const restored = restoreCanvases();
+                if (!restored) {
+                    console.error('无法恢复画布元素，中止操作');
+                    return;
+                }
+                
+                // 重新获取画布元素
+                const horizontalUpCanvas = document.getElementById('horizontalUpCanvas');
+                const horizontalDownCanvas = document.getElementById('horizontalDownCanvas');
+                const verticalLeftCanvas = document.getElementById('verticalLeftCanvas');
+                const verticalRightCanvas = document.getElementById('verticalRightCanvas');
+                
+                // 再次验证
+                if (![horizontalUpCanvas, horizontalDownCanvas, verticalLeftCanvas, verticalRightCanvas]
+                    .every(canvas => canvas && canvas.parentNode)) {
+                    console.error('无法获取有效的画布元素，即使在尝试恢复后');
+                    return;
+                }
+            }
+
+            // 生成对称图像
             generateSymmetry(horizontalUpCanvas, 'horizontalUp');
             generateSymmetry(horizontalDownCanvas, 'horizontalDown');
             generateSymmetry(verticalLeftCanvas, 'verticalLeft');
