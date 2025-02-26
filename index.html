@@ -416,11 +416,11 @@
                         workers: 2,
                         quality: 1,
                         workerScript: './gif.worker.js',
-                        transparent: null,       // 移除透明色设置
-                        background: '#FFFFFF',
+                        transparent: null,
+                        background: null,     // 移除背景色设置
                         dither: false,
-                        repeat: 0,              // 循环播放
-                        debug: true             // 启用调试模式以便查看问题
+                        repeat: 0,
+                        debug: true
                     });
                     
                     // 检查 gifFrames 是否有效
@@ -471,10 +471,7 @@
                                 willReadFrequently: true
                             });
                             
-                            // 每一帧都需要完整重绘
-                            tempCtx.fillStyle = '#FFFFFF';
-                            tempCtx.fillRect(0, 0, newWidth, newHeight);
-                            
+                            // 移除白色背景的预填充
                             const originalTempCanvas = document.createElement('canvas');
                             originalTempCanvas.width = originalWidth;
                             originalTempCanvas.height = originalHeight;
@@ -482,15 +479,14 @@
                                 willReadFrequently: true
                             });
                             
-                            // 为每一帧创建完整的图像
-                            originalTempCtx.fillStyle = '#FFFFFF';
-                            originalTempCtx.fillRect(0, 0, originalWidth, originalHeight);
+                            // 直接绘制原始帧数据，不添加背景
                             originalTempCtx.putImageData(frame.imageData, 0, 0);
                             
                             // 应用对称变换
                             tempCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
+                                    // 修改对称处理逻辑，保持原始像素数据
                                     tempCtx.drawImage(originalTempCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
                                     tempCtx.scale(1, -1);
                                     tempCtx.translate(0, -newHeight);
@@ -517,12 +513,12 @@
                             }
                             tempCtx.restore();
                             
-                            // 添加帧时使用更细致的配置
+                            // 添加帧时使用优化的配置
                             gif.addFrame(tempCanvas, {
                                 delay: frame.delay,
                                 copy: true,
-                                dispose: 1,  // 使用 1 表示不清除前一帧
-                                transparent: false
+                                dispose: 2,  // 使用 2 表示每帧都完全重绘
+                                transparent: true  // 允许透明
                             });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
@@ -685,21 +681,10 @@
                     const frameInfo = reader.frameInfo(i);
                     const imageData = new ImageData(width, height);
                     
-                    // 不预填充白色背景，而是保持原始数据
+                    // 直接解码帧数据，不做预处理
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
                     
-                    // 只处理真正的透明像素
-                    for (let j = 0; j < imageData.data.length; j += 4) {
-                        const alpha = imageData.data[j + 3];
-                        if (alpha === 0) {
-                            // 只将完全透明的像素设为白色
-                            imageData.data[j] = 255;     // R
-                            imageData.data[j + 1] = 255; // G
-                            imageData.data[j + 2] = 255; // B
-                            imageData.data[j + 3] = 255; // A
-                        }
-                    }
-                    
+                    // 不对透明像素做特殊处理，保持原始状态
                     gifFrames.push({ 
                         imageData, 
                         delay: frameInfo.delay * 10,
