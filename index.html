@@ -414,8 +414,13 @@
                 try {
                     const gif = new GIF({
                         workers: 2,
-                        quality: 10,
-                        workerScript: './gif.worker.js'
+                        quality: 1,
+                        workerScript: './gif.worker.js',
+                        transparent: null,       // 移除透明色设置
+                        background: '#FFFFFF',
+                        dither: false,
+                        repeat: 0,              // 循环播放
+                        debug: true             // 启用调试模式以便查看问题
                     });
                     
                     // 检查 gifFrames 是否有效
@@ -459,24 +464,28 @@
                     // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
-                            // 创建临时画布来处理每一帧
                             const tempCanvas = document.createElement('canvas');
                             tempCanvas.width = newWidth;
                             tempCanvas.height = newHeight;
-                            const tempCtx = tempCanvas.getContext('2d');
+                            const tempCtx = tempCanvas.getContext('2d', {
+                                willReadFrequently: true
+                            });
                             
-                            // 创建并填充原始帧画布
+                            // 每一帧都需要完整重绘
+                            tempCtx.fillStyle = '#FFFFFF';
+                            tempCtx.fillRect(0, 0, newWidth, newHeight);
+                            
                             const originalTempCanvas = document.createElement('canvas');
                             originalTempCanvas.width = originalWidth;
                             originalTempCanvas.height = originalHeight;
-                            const originalTempCtx = originalTempCanvas.getContext('2d');
+                            const originalTempCtx = originalTempCanvas.getContext('2d', {
+                                willReadFrequently: true
+                            });
                             
-                            if (frame.imageData && frame.imageData.data) {
-                                originalTempCtx.putImageData(frame.imageData, 0, 0);
-                            } else {
-                                console.error('Invalid frame data for frame', frameIndex);
-                                return;
-                            }
+                            // 为每一帧创建完整的图像
+                            originalTempCtx.fillStyle = '#FFFFFF';
+                            originalTempCtx.fillRect(0, 0, originalWidth, originalHeight);
+                            originalTempCtx.putImageData(frame.imageData, 0, 0);
                             
                             // 应用对称变换
                             tempCtx.save();
@@ -508,8 +517,13 @@
                             }
                             tempCtx.restore();
                             
-                            // 添加处理后的帧到GIF
-                            gif.addFrame(tempCanvas, { delay: frame.delay });
+                            // 添加帧时使用更细致的配置
+                            gif.addFrame(tempCanvas, {
+                                delay: frame.delay,
+                                copy: true,
+                                dispose: 1,  // 使用 1 表示不清除前一帧
+                                transparent: false
+                            });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
                         }
@@ -666,14 +680,30 @@
                 // 清空并重新填充帧数组
                 gifFrames = [];
                 
-                // 解码所有帧
+                // 修改帧处理部分
                 for (let i = 0; i < numFrames; i++) {
                     const frameInfo = reader.frameInfo(i);
                     const imageData = new ImageData(width, height);
+                    
+                    // 不预填充白色背景，而是保持原始数据
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
+                    
+                    // 只处理真正的透明像素
+                    for (let j = 0; j < imageData.data.length; j += 4) {
+                        const alpha = imageData.data[j + 3];
+                        if (alpha === 0) {
+                            // 只将完全透明的像素设为白色
+                            imageData.data[j] = 255;     // R
+                            imageData.data[j + 1] = 255; // G
+                            imageData.data[j + 2] = 255; // B
+                            imageData.data[j + 3] = 255; // A
+                        }
+                    }
+                    
                     gifFrames.push({ 
                         imageData, 
-                        delay: frameInfo.delay * 10 
+                        delay: frameInfo.delay * 10,
+                        disposal: frameInfo.disposal
                     });
                 }
                 
