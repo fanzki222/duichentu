@@ -419,10 +419,36 @@
                         repeat: 0
                     });
                     
-                    // 创建一个累积画布来处理帧的叠加
+                    // 计算新的画布尺寸
+                    const originalWidth = originalCanvas.width;
+                    const originalHeight = originalCanvas.height;
+                    let newWidth = originalWidth;
+                    let newHeight = originalHeight;
+
+                    // 根据对称类型调整画布尺寸
+                    switch (type) {
+                        case 'horizontalUp':
+                            newHeight = centerY * 2;
+                            break;
+                        case 'horizontalDown':
+                            newHeight = (originalHeight - centerY) * 2;
+                            break;
+                        case 'verticalLeft':
+                            newWidth = centerX * 2;
+                            break;
+                        case 'verticalRight':
+                            newWidth = (originalWidth - centerX) * 2;
+                            break;
+                    }
+
+                    // 设置画布尺寸
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    
+                    // 创建累积画布
                     const accumulateCanvas = document.createElement('canvas');
-                    accumulateCanvas.width = canvas.width;
-                    accumulateCanvas.height = canvas.height;
+                    accumulateCanvas.width = newWidth;
+                    accumulateCanvas.height = newHeight;
                     const accumulateCtx = accumulateCanvas.getContext('2d');
                     
                     // 跟踪前一帧的状态
@@ -432,19 +458,14 @@
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
                             const tempCanvas = document.createElement('canvas');
-                            tempCanvas.width = canvas.width;
-                            tempCanvas.height = canvas.height;
+                            tempCanvas.width = newWidth;
+                            tempCanvas.height = newHeight;
                             const tempCtx = tempCanvas.getContext('2d');
-                            
-                            // 如果需要，从前一帧开始
-                            if (previousFrame) {
-                                tempCtx.drawImage(previousFrame, 0, 0);
-                            }
                             
                             // 创建当前帧的画布
                             const frameCanvas = document.createElement('canvas');
-                            frameCanvas.width = originalCanvas.width;
-                            frameCanvas.height = originalCanvas.height;
+                            frameCanvas.width = originalWidth;
+                            frameCanvas.height = originalHeight;
                             const frameCtx = frameCanvas.getContext('2d');
                             frameCtx.putImageData(frame.imageData, 0, 0);
                             
@@ -452,39 +473,31 @@
                             tempCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
-                                    // 绘制上半部分
-                                    tempCtx.drawImage(frameCanvas, 0, 0, originalCanvas.width, centerY, 0, 0, originalCanvas.width, centerY);
-                                    // 绘制镜像部分
+                                    tempCtx.drawImage(frameCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
                                     tempCtx.scale(1, -1);
-                                    tempCtx.translate(0, -canvas.height);
-                                    tempCtx.drawImage(frameCanvas, 0, 0, originalCanvas.width, centerY, 0, 0, originalCanvas.width, centerY);
+                                    tempCtx.translate(0, -newHeight);
+                                    tempCtx.drawImage(frameCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
                                     break;
                                 case 'horizontalDown':
-                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalCanvas.width, originalCanvas.height - centerY, 0, canvas.height / 2, originalCanvas.width, originalCanvas.height - centerY);
+                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, newHeight / 2, originalWidth, originalHeight - centerY);
                                     tempCtx.scale(1, -1);
-                                    tempCtx.translate(0, -canvas.height / 2);
-                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalCanvas.width, originalCanvas.height - centerY, 0, 0, originalCanvas.width, originalCanvas.height - centerY);
+                                    tempCtx.translate(0, -newHeight / 2);
+                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, 0, originalWidth, originalHeight - centerY);
                                     break;
                                 case 'verticalLeft':
-                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalCanvas.height, 0, 0, centerX, originalCanvas.height);
+                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
                                     tempCtx.scale(-1, 1);
-                                    tempCtx.translate(-canvas.width, 0);
-                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalCanvas.height, 0, 0, centerX, originalCanvas.height);
+                                    tempCtx.translate(-newWidth, 0);
+                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
                                     break;
                                 case 'verticalRight':
-                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalCanvas.width - centerX, originalCanvas.height, canvas.width / 2, 0, originalCanvas.width - centerX, originalCanvas.height);
+                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, newWidth / 2, 0, originalWidth - centerX, originalHeight);
                                     tempCtx.scale(-1, 1);
-                                    tempCtx.translate(-canvas.width / 2, 0);
-                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalCanvas.width - centerX, originalCanvas.height, 0, 0, originalCanvas.width - centerX, originalCanvas.height);
+                                    tempCtx.translate(-newWidth / 2, 0);
+                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
                                     break;
                             }
                             tempCtx.restore();
-                            
-                            // 保存当前帧用于下一帧的处理
-                            previousFrame = document.createElement('canvas');
-                            previousFrame.width = canvas.width;
-                            previousFrame.height = canvas.height;
-                            previousFrame.getContext('2d').drawImage(tempCanvas, 0, 0);
                             
                             // 添加帧到GIF
                             gif.addFrame(tempCanvas, {
@@ -496,7 +509,7 @@
                         }
                     });
                     
-                    // GIF渲染完成后的处理保持不变
+                    // GIF渲染完成后的处理
                     gif.on('finished', (blob) => {
                         try {
                             const img = document.createElement('img');
@@ -507,19 +520,15 @@
                             img.style.border = '1px solid #ddd';
                             img.style.cursor = 'pointer';
                             
-                            // 确保父元素仍然存在
                             const currentParent = canvas.parentNode;
                             if (currentParent) {
                                 currentParent.replaceChild(img, canvas);
-                            } else {
-                                console.error('Canvas parent no longer exists when replacing with image');
                             }
                         } catch (replaceError) {
                             console.error('Error replacing canvas with image', replaceError);
                         }
                     });
                     
-                    // 开始渲染
                     gif.render();
                 } catch (error) {
                     console.error('Error in GIF processing:', error);
