@@ -624,10 +624,8 @@
                 // 检查是否有有效的GIF数据
                 let gifData;
                 if (originalGifData) {
-                    // 优先使用保存的原始GIF数据
                     gifData = originalGifData;
                 } else {
-                    // 否则使用传入的arrayBuffer
                     gifData = new Uint8Array(arrayBuffer);
                 }
                 
@@ -641,50 +639,52 @@
                     return;
                 }
                 
-                // 创建新的GIF读取器
                 const reader = new GifReader(gifData);
                 const numFrames = reader.numFrames();
                 const width = reader.width;
                 const height = reader.height;
                 
-                // 确保宽高有效
                 if (width <= 0 || height <= 0) {
                     console.error('Invalid GIF dimensions:', width, height);
                     return;
                 }
                 
-                // 设置原始画布尺寸
                 originalCanvas.width = width;
                 originalCanvas.height = height;
                 
-                // 如果中心点未设置，默认为中心
                 if (typeof centerX === 'undefined' || typeof centerY === 'undefined') {
                     centerX = width / 2;
                     centerY = height / 2;
                 }
 
-                // 清空并重新填充帧数组
                 gifFrames = [];
                 
-                // 解码所有帧
                 for (let i = 0; i < numFrames; i++) {
                     const frameInfo = reader.frameInfo(i);
                     const imageData = new ImageData(width, height);
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
+                    
+                    // 确保透明度信息被正确处理
+                    for (let j = 0; j < imageData.data.length; j += 4) {
+                        if (imageData.data[j + 3] === 0) { // 检查透明度
+                            imageData.data[j] = 0;
+                            imageData.data[j + 1] = 0;
+                            imageData.data[j + 2] = 0;
+                        }
+                    }
+                    
                     gifFrames.push({ 
                         imageData, 
                         delay: frameInfo.delay * 10 
                     });
                 }
                 
-                // 绘制第一帧
                 if (gifFrames.length > 0) {
                     const ctxOriginal = originalCanvas.getContext('2d');
                     ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
                     drawCenterPoint(ctxOriginal);
                 }
                 
-                // 在生成对称预览之前验证所有画布
                 const allCanvasValid = [
                     document.getElementById('horizontalUpCanvas'),
                     document.getElementById('horizontalDownCanvas'),
@@ -701,13 +701,11 @@
                     }
                 }
                 
-                // 获取恢复后的画布元素
                 const horizontalUpCanvas = document.getElementById('horizontalUpCanvas');
                 const horizontalDownCanvas = document.getElementById('horizontalDownCanvas');
                 const verticalLeftCanvas = document.getElementById('verticalLeftCanvas');
                 const verticalRightCanvas = document.getElementById('verticalRightCanvas');
                 
-                // 生成对称预览
                 generateSymmetry(horizontalUpCanvas, 'horizontalUp');
                 generateSymmetry(horizontalDownCanvas, 'horizontalDown');
                 generateSymmetry(verticalLeftCanvas, 'verticalLeft');
