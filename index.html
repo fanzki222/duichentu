@@ -239,29 +239,100 @@
                 const gif = new GIF({
                     workers: 2,
                     quality: 10,
-                    workerScript: './gif.worker.js'
+                    workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
                 });
+                
+                const originalWidth = originalCanvas.width;
+                const originalHeight = originalCanvas.height;
+                let newWidth = originalWidth;
+                let newHeight = originalHeight;
+
+                // 根据对称类型计算新的尺寸
+                switch (type) {
+                    case 'horizontalUp':
+                        newHeight = centerY * 2;
+                        break;
+                    case 'horizontalDown':
+                        newHeight = (originalHeight - centerY) * 2;
+                        break;
+                    case 'verticalLeft':
+                        newWidth = centerX * 2;
+                        break;
+                    case 'verticalRight':
+                        newWidth = (originalWidth - centerX) * 2;
+                        break;
+                }
+
+                // 为每一帧创建对称效果
                 gifFrames.forEach(frame => {
                     const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = originalCanvas.width;
-                    tempCanvas.height = originalCanvas.height;
+                    tempCanvas.width = newWidth;
+                    tempCanvas.height = newHeight;
                     const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.putImageData(frame.imageData, 0, 0);
-                    applySymmetry(tempCtx, type);
+                    
+                    // 先在临时画布上绘制原始帧
+                    const originalTempCanvas = document.createElement('canvas');
+                    originalTempCanvas.width = originalWidth;
+                    originalTempCanvas.height = originalHeight;
+                    const originalTempCtx = originalTempCanvas.getContext('2d');
+                    originalTempCtx.putImageData(frame.imageData, 0, 0);
+                    
+                    // 应用对称变换
+                    tempCtx.save();
+                    switch (type) {
+                        case 'horizontalUp':
+                            tempCtx.drawImage(originalTempCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                            tempCtx.scale(1, -1);
+                            tempCtx.translate(0, -newHeight);
+                            tempCtx.drawImage(originalTempCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                            break;
+                        case 'horizontalDown':
+                            tempCtx.drawImage(originalTempCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, newHeight / 2, originalWidth, originalHeight - centerY);
+                            tempCtx.scale(1, -1);
+                            tempCtx.translate(0, -newHeight / 2);
+                            tempCtx.drawImage(originalTempCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, 0, originalWidth, originalHeight - centerY);
+                            break;
+                        case 'verticalLeft':
+                            tempCtx.drawImage(originalTempCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                            tempCtx.scale(-1, 1);
+                            tempCtx.translate(-newWidth, 0);
+                            tempCtx.drawImage(originalTempCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                            break;
+                        case 'verticalRight':
+                            tempCtx.drawImage(originalTempCanvas, centerX, 0, originalWidth - centerX, originalHeight, newWidth / 2, 0, originalWidth - centerX, originalHeight);
+                            tempCtx.scale(-1, 1);
+                            tempCtx.translate(-newWidth / 2, 0);
+                            tempCtx.drawImage(originalTempCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
+                            break;
+                    }
+                    tempCtx.restore();
+                    
                     gif.addFrame(tempCanvas, { delay: frame.delay });
                 });
+                
+                // 设置 canvas 尺寸以便在 GIF 生成前显示
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                
                 gif.on('finished', (blob) => {
                     const parent = canvas.parentNode;
                     if (parent) {
                         const img = document.createElement('img');
                         img.src = URL.createObjectURL(blob);
+                        img.id = canvas.id + 'Img'; // 保留原始 ID 的引用
+                        img.style.maxWidth = '300px';
+                        img.style.maxHeight = '300px';
+                        img.style.border = '1px solid #ddd';
+                        img.style.cursor = 'pointer';
                         parent.replaceChild(img, canvas);
                     } else {
                         console.error('Canvas has no parent node.');
                     }
                 });
+                
                 gif.render();
             } else {
+                // 静态图像处理代码保持不变
                 const originalWidth = originalImage.width;
                 const originalHeight = originalImage.height;
                 let newWidth = originalWidth;
@@ -356,7 +427,12 @@
 
         // 复制图像到剪切板
         function copyImage(canvasId) {
-            const element = document.getElementById(canvasId);
+            const element = document.getElementById(canvasId) || document.getElementById(canvasId + 'Img');
+            if (!element) {
+                console.error('Element not found:', canvasId);
+                return;
+            }
+            
             if (element.tagName === 'CANVAS') {
                 element.toBlob(blob => {
                     navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
@@ -376,7 +452,12 @@
 
         // 下载图像
         function downloadImage(canvasId, filename) {
-            const element = document.getElementById(canvasId);
+            const element = document.getElementById(canvasId) || document.getElementById(canvasId + 'Img');
+            if (!element) {
+                console.error('Element not found:', canvasId);
+                return;
+            }
+            
             const link = document.createElement('a');
             link.download = `${filename}.${isGif ? 'gif' : 'png'}`;
             if (element.tagName === 'CANVAS') {
