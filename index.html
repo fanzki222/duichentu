@@ -230,7 +230,7 @@
             return true;
         }
 
-        // 处理上传的文件
+        // 修改 processFile 函数，增加文件格式检测
         async function processFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 alert('请上传图片文件！');
@@ -240,8 +240,23 @@
             // 恢复所有 canvas 元素
             restoreCanvases();
             
-            isGif = file.type === 'image/gif';
-            arrayBuffer = await file.arrayBuffer();
+            // 读取文件的前几个字节来判断真实格式
+            const arrayBuffer = await file.arrayBuffer();
+            const firstBytes = new Uint8Array(arrayBuffer.slice(0, 6));
+            
+            // 判断是否为GIF格式（检查文件头标识）
+            // GIF文件头是 "GIF87a" 或 "GIF89a"
+            const isActuallyGif = firstBytes[0] === 71 && firstBytes[1] === 73 && 
+                                  firstBytes[2] === 70 && firstBytes[3] === 56 && 
+                                  (firstBytes[4] === 55 || firstBytes[4] === 57) && 
+                                  firstBytes[5] === 97;
+            
+            // 如果通过文件头检测为GIF或文件类型本身为GIF，则作为GIF处理
+            isGif = isActuallyGif || file.type === 'image/gif';
+            
+            if (isActuallyGif && file.type !== 'image/gif') {
+                console.log('检测到文件实际为GIF格式，尽管MIME类型为:', file.type);
+            }
             
             // 使用延迟确保DOM操作完成
             setTimeout(() => {
