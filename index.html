@@ -414,140 +414,89 @@
                 try {
                     const gif = new GIF({
                         workers: 2,
-                        quality: 10,           // 调整回较高的压缩率
+                        quality: 10,
                         workerScript: './gif.worker.js',
-                        transparent: null,
-                        background: null,
-                        dither: true,         // 启用抖动以处理渐变
-                        repeat: 0,
-                        debug: true
+                        repeat: 0
                     });
                     
-                    // 检查 gifFrames 是否有效
-                    if (!gifFrames || gifFrames.length === 0) {
-                        console.error('No GIF frames available');
-                        return;
-                    }
+                    // 创建一个累积画布来处理帧的叠加
+                    const accumulateCanvas = document.createElement('canvas');
+                    accumulateCanvas.width = canvas.width;
+                    accumulateCanvas.height = canvas.height;
+                    const accumulateCtx = accumulateCanvas.getContext('2d');
                     
-                    const originalWidth = originalCanvas.width;
-                    const originalHeight = originalCanvas.height;
-                    
-                    // 确保原始尺寸有效
-                    if (originalWidth <= 0 || originalHeight <= 0) {
-                        console.error('Invalid original canvas dimensions:', originalWidth, originalHeight);
-                        return;
-                    }
-                    
-                    let newWidth = originalWidth;
-                    let newHeight = originalHeight;
-
-                    // 根据对称类型计算新的尺寸
-                    switch (type) {
-                        case 'horizontalUp':
-                            newHeight = Math.max(1, centerY * 2);
-                            break;
-                        case 'horizontalDown':
-                            newHeight = Math.max(1, (originalHeight - centerY) * 2);
-                            break;
-                        case 'verticalLeft':
-                            newWidth = Math.max(1, centerX * 2);
-                            break;
-                        case 'verticalRight':
-                            newWidth = Math.max(1, (originalWidth - centerX) * 2);
-                            break;
-                    }
-                    
-                    // 设置目标画布尺寸
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
+                    // 跟踪前一帧的状态
+                    let previousFrame = null;
                     
                     // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
                             const tempCanvas = document.createElement('canvas');
-                            tempCanvas.width = newWidth;
-                            tempCanvas.height = newHeight;
-                            const tempCtx = tempCanvas.getContext('2d', {
-                                willReadFrequently: true,
-                                alpha: true
-                            });
+                            tempCanvas.width = canvas.width;
+                            tempCanvas.height = canvas.height;
+                            const tempCtx = tempCanvas.getContext('2d');
                             
-                            const originalTempCanvas = document.createElement('canvas');
-                            originalTempCanvas.width = originalWidth;
-                            originalTempCanvas.height = originalHeight;
-                            const originalTempCtx = originalTempCanvas.getContext('2d', {
-                                willReadFrequently: true,
-                                alpha: true
-                            });
-                            
-                            // 处理原始帧数据
-                            const frameImageData = new ImageData(
-                                new Uint8ClampedArray(frame.imageData.data),
-                                originalWidth,
-                                originalHeight
-                            );
-                            
-                            // 预处理像素数据，确保非透明区域的alpha值为255
-                            for (let i = 0; i < frameImageData.data.length; i += 4) {
-                                if (frameImageData.data[i + 3] > 0) {
-                                    frameImageData.data[i + 3] = 255;
-                                }
+                            // 如果需要，从前一帧开始
+                            if (previousFrame) {
+                                tempCtx.drawImage(previousFrame, 0, 0);
                             }
                             
-                            originalTempCtx.putImageData(frameImageData, 0, 0);
-
+                            // 创建当前帧的画布
+                            const frameCanvas = document.createElement('canvas');
+                            frameCanvas.width = originalCanvas.width;
+                            frameCanvas.height = originalCanvas.height;
+                            const frameCtx = frameCanvas.getContext('2d');
+                            frameCtx.putImageData(frame.imageData, 0, 0);
+                            
                             // 应用对称变换
                             tempCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
-                                    tempCtx.drawImage(originalTempCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                                    // 绘制上半部分
+                                    tempCtx.drawImage(frameCanvas, 0, 0, originalCanvas.width, centerY, 0, 0, originalCanvas.width, centerY);
+                                    // 绘制镜像部分
                                     tempCtx.scale(1, -1);
-                                    tempCtx.translate(0, -newHeight);
-                                    tempCtx.drawImage(originalTempCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                                    tempCtx.translate(0, -canvas.height);
+                                    tempCtx.drawImage(frameCanvas, 0, 0, originalCanvas.width, centerY, 0, 0, originalCanvas.width, centerY);
                                     break;
                                 case 'horizontalDown':
-                                    tempCtx.drawImage(originalTempCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, newHeight / 2, originalWidth, originalHeight - centerY);
+                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalCanvas.width, originalCanvas.height - centerY, 0, canvas.height / 2, originalCanvas.width, originalCanvas.height - centerY);
                                     tempCtx.scale(1, -1);
-                                    tempCtx.translate(0, -newHeight / 2);
-                                    tempCtx.drawImage(originalTempCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, 0, originalWidth, originalHeight - centerY);
+                                    tempCtx.translate(0, -canvas.height / 2);
+                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalCanvas.width, originalCanvas.height - centerY, 0, 0, originalCanvas.width, originalCanvas.height - centerY);
                                     break;
                                 case 'verticalLeft':
-                                    tempCtx.drawImage(originalTempCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalCanvas.height, 0, 0, centerX, originalCanvas.height);
                                     tempCtx.scale(-1, 1);
-                                    tempCtx.translate(-newWidth, 0);
-                                    tempCtx.drawImage(originalTempCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                                    tempCtx.translate(-canvas.width, 0);
+                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalCanvas.height, 0, 0, centerX, originalCanvas.height);
                                     break;
                                 case 'verticalRight':
-                                    tempCtx.drawImage(originalTempCanvas, centerX, 0, originalWidth - centerX, originalHeight, newWidth / 2, 0, originalWidth - centerX, originalHeight);
+                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalCanvas.width - centerX, originalCanvas.height, canvas.width / 2, 0, originalCanvas.width - centerX, originalCanvas.height);
                                     tempCtx.scale(-1, 1);
-                                    tempCtx.translate(-newWidth / 2, 0);
-                                    tempCtx.drawImage(originalTempCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
+                                    tempCtx.translate(-canvas.width / 2, 0);
+                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalCanvas.width - centerX, originalCanvas.height, 0, 0, originalCanvas.width - centerX, originalCanvas.height);
                                     break;
                             }
                             tempCtx.restore();
-
-                            // 获取处理后的图像数据并确保边缘像素的完整性
-                            const processedImageData = tempCtx.getImageData(0, 0, newWidth, newHeight);
-                            for (let i = 0; i < processedImageData.data.length; i += 4) {
-                                if (processedImageData.data[i + 3] > 0) {
-                                    processedImageData.data[i + 3] = 255;
-                                }
-                            }
-                            tempCtx.putImageData(processedImageData, 0, 0);
-
-                            // 添加帧
+                            
+                            // 保存当前帧用于下一帧的处理
+                            previousFrame = document.createElement('canvas');
+                            previousFrame.width = canvas.width;
+                            previousFrame.height = canvas.height;
+                            previousFrame.getContext('2d').drawImage(tempCanvas, 0, 0);
+                            
+                            // 添加帧到GIF
                             gif.addFrame(tempCanvas, {
                                 delay: frame.delay,
-                                copy: true,
-                                dispose: 3,  // 使用 3 表示恢复到前一帧
-                                transparent: true
+                                copy: true
                             });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
                         }
                     });
                     
-                    // 当GIF渲染完成后替换画布
+                    // GIF渲染完成后的处理保持不变
                     gif.on('finished', (blob) => {
                         try {
                             const img = document.createElement('img');
@@ -570,15 +519,10 @@
                         }
                     });
                     
-                    // 添加错误处理
-                    gif.on('abort', (error) => {
-                        console.error('GIF rendering aborted:', error);
-                    });
-                    
                     // 开始渲染
                     gif.render();
-                } catch (gifError) {
-                    console.error('Error initializing GIF processor:', gifError);
+                } catch (error) {
+                    console.error('Error in GIF processing:', error);
                 }
             } else {
                 // 静态图像处理代码保持不变
@@ -647,7 +591,7 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数，增加数据有效性验证
+        // 修改 processGIF 函数，简化帧处理部分
         function processGIF(arrayBuffer) {
             try {
                 // 确保所有画布都已恢复
@@ -702,26 +646,12 @@
                 for (let i = 0; i < numFrames; i++) {
                     const frameInfo = reader.frameInfo(i);
                     const imageData = new ImageData(width, height);
-                    
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
                     
-                    // 预处理帧数据
-                    for (let j = 0; j < imageData.data.length; j += 4) {
-                        const alpha = imageData.data[j + 3];
-                        // 将半透明像素转换为完全不透明或完全透明
-                        if (alpha > 0 && alpha < 255) {
-                            if (alpha > 127) {
-                                imageData.data[j + 3] = 255;
-                            } else {
-                                imageData.data[j + 3] = 0;
-                            }
-                        }
-                    }
-                    
+                    // 直接存储原始帧数据，不做任何预处理
                     gifFrames.push({ 
                         imageData, 
-                        delay: frameInfo.delay * 10,
-                        disposal: frameInfo.disposal || 2
+                        delay: frameInfo.delay * 10
                     });
                 }
                 
