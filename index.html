@@ -414,11 +414,11 @@
                 try {
                     const gif = new GIF({
                         workers: 2,
-                        quality: 1,
+                        quality: 10,           // 调整回较高的压缩率
                         workerScript: './gif.worker.js',
                         transparent: null,
-                        background: null,     // 移除背景色设置
-                        dither: false,
+                        background: null,
+                        dither: true,         // 启用抖动以处理渐变
                         repeat: 0,
                         debug: true
                     });
@@ -468,25 +468,38 @@
                             tempCanvas.width = newWidth;
                             tempCanvas.height = newHeight;
                             const tempCtx = tempCanvas.getContext('2d', {
-                                willReadFrequently: true
+                                willReadFrequently: true,
+                                alpha: true
                             });
                             
-                            // 移除白色背景的预填充
                             const originalTempCanvas = document.createElement('canvas');
                             originalTempCanvas.width = originalWidth;
                             originalTempCanvas.height = originalHeight;
                             const originalTempCtx = originalTempCanvas.getContext('2d', {
-                                willReadFrequently: true
+                                willReadFrequently: true,
+                                alpha: true
                             });
                             
-                            // 直接绘制原始帧数据，不添加背景
-                            originalTempCtx.putImageData(frame.imageData, 0, 0);
+                            // 处理原始帧数据
+                            const frameImageData = new ImageData(
+                                new Uint8ClampedArray(frame.imageData.data),
+                                originalWidth,
+                                originalHeight
+                            );
                             
+                            // 预处理像素数据，确保非透明区域的alpha值为255
+                            for (let i = 0; i < frameImageData.data.length; i += 4) {
+                                if (frameImageData.data[i + 3] > 0) {
+                                    frameImageData.data[i + 3] = 255;
+                                }
+                            }
+                            
+                            originalTempCtx.putImageData(frameImageData, 0, 0);
+
                             // 应用对称变换
                             tempCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
-                                    // 修改对称处理逻辑，保持原始像素数据
                                     tempCtx.drawImage(originalTempCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
                                     tempCtx.scale(1, -1);
                                     tempCtx.translate(0, -newHeight);
@@ -512,13 +525,22 @@
                                     break;
                             }
                             tempCtx.restore();
-                            
-                            // 添加帧时使用优化的配置
+
+                            // 获取处理后的图像数据并确保边缘像素的完整性
+                            const processedImageData = tempCtx.getImageData(0, 0, newWidth, newHeight);
+                            for (let i = 0; i < processedImageData.data.length; i += 4) {
+                                if (processedImageData.data[i + 3] > 0) {
+                                    processedImageData.data[i + 3] = 255;
+                                }
+                            }
+                            tempCtx.putImageData(processedImageData, 0, 0);
+
+                            // 添加帧
                             gif.addFrame(tempCanvas, {
                                 delay: frame.delay,
                                 copy: true,
-                                dispose: 2,  // 使用 2 表示每帧都完全重绘
-                                transparent: true  // 允许透明
+                                dispose: 3,  // 使用 3 表示恢复到前一帧
+                                transparent: true
                             });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
@@ -681,14 +703,25 @@
                     const frameInfo = reader.frameInfo(i);
                     const imageData = new ImageData(width, height);
                     
-                    // 直接解码帧数据，不做预处理
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
                     
-                    // 不对透明像素做特殊处理，保持原始状态
+                    // 预处理帧数据
+                    for (let j = 0; j < imageData.data.length; j += 4) {
+                        const alpha = imageData.data[j + 3];
+                        // 将半透明像素转换为完全不透明或完全透明
+                        if (alpha > 0 && alpha < 255) {
+                            if (alpha > 127) {
+                                imageData.data[j + 3] = 255;
+                            } else {
+                                imageData.data[j + 3] = 0;
+                            }
+                        }
+                    }
+                    
                     gifFrames.push({ 
                         imageData, 
                         delay: frameInfo.delay * 10,
-                        disposal: frameInfo.disposal
+                        disposal: frameInfo.disposal || 2
                     });
                 }
                 
