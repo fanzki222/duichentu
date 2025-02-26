@@ -414,10 +414,11 @@
                 try {
                     const gif = new GIF({
                         workers: 2,
-                        quality: 10,
+                        quality: 1,          // 降低压缩率
                         workerScript: './gif.worker.js',
                         repeat: 0,
-                        background: '#FFFFFF'  // 设置白色背景
+                        dither: false,       // 禁用抖动
+                        transparent: null    // 移除透明设置
                     });
                     
                     // 计算新的画布尺寸
@@ -449,25 +450,22 @@
                     // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
-                            // 创建两个画布：一个用于原始帧，一个用于对称结果
                             const frameCanvas = document.createElement('canvas');
                             frameCanvas.width = originalWidth;
                             frameCanvas.height = originalHeight;
-                            const frameCtx = frameCanvas.getContext('2d');
+                            const frameCtx = frameCanvas.getContext('2d', {
+                                willReadFrequently: true
+                            });
                             
-                            // 先填充白色背景
-                            frameCtx.fillStyle = '#FFFFFF';
-                            frameCtx.fillRect(0, 0, originalWidth, originalHeight);
+                            // 直接绘制原始帧，不添加背景
                             frameCtx.putImageData(frame.imageData, 0, 0);
 
                             const resultCanvas = document.createElement('canvas');
                             resultCanvas.width = newWidth;
                             resultCanvas.height = newHeight;
-                            const resultCtx = resultCanvas.getContext('2d');
-                            
-                            // 先填充结果画布的背景
-                            resultCtx.fillStyle = '#FFFFFF';
-                            resultCtx.fillRect(0, 0, newWidth, newHeight);
+                            const resultCtx = resultCanvas.getContext('2d', {
+                                willReadFrequently: true
+                            });
 
                             // 应用对称变换
                             resultCtx.save();
@@ -492,26 +490,50 @@
                                     // 绘制左半部分
                                     resultCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
                                     // 绘制镜像部分
-                                    resultCtx.translate(-newWidth, 0);
+                                    resultCtx.translate(newWidth, 0);
                                     resultCtx.scale(-1, 1);
                                     resultCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
                                     break;
                                 case 'verticalRight':
                                     // 绘制右半部分
-                                    resultCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, newWidth/2, 0, originalWidth - centerX, originalHeight);
+                                    resultCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
                                     // 绘制镜像部分
-                                    resultCtx.translate(-newWidth/2, 0);
+                                    resultCtx.translate(newWidth, 0);
                                     resultCtx.scale(-1, 1);
                                     resultCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
                                     break;
                             }
                             resultCtx.restore();
 
-                            // 添加帧到GIF，使用更保守的设置
+                            // 获取处理后的图像数据
+                            const processedImageData = resultCtx.getImageData(0, 0, newWidth, newHeight);
+                            
+                            // 处理像素数据
+                            for (let i = 0; i < processedImageData.data.length; i += 4) {
+                                // 如果像素完全透明，设置为白色
+                                if (processedImageData.data[i + 3] === 0) {
+                                    processedImageData.data[i] = 255;     // R
+                                    processedImageData.data[i + 1] = 255; // G
+                                    processedImageData.data[i + 2] = 255; // B
+                                    processedImageData.data[i + 3] = 255; // A
+                                }
+                                // 如果是半透明像素，调整为完全不透明
+                                else if (processedImageData.data[i + 3] < 255) {
+                                    const alpha = processedImageData.data[i + 3] / 255;
+                                    processedImageData.data[i] = Math.round(processedImageData.data[i] * alpha + 255 * (1 - alpha));
+                                    processedImageData.data[i + 1] = Math.round(processedImageData.data[i + 1] * alpha + 255 * (1 - alpha));
+                                    processedImageData.data[i + 2] = Math.round(processedImageData.data[i + 2] * alpha + 255 * (1 - alpha));
+                                    processedImageData.data[i + 3] = 255;
+                                }
+                            }
+                            
+                            resultCtx.putImageData(processedImageData, 0, 0);
+
+                            // 添加帧到GIF
                             gif.addFrame(resultCanvas, {
                                 delay: frame.delay,
                                 copy: true,
-                                dispose: 2,  // 使用完全重绘模式
+                                dispose: 1  // 使用 1 表示保持前一帧
                             });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
