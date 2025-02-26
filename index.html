@@ -618,18 +618,10 @@
         // 修改 processGIF 函数，增加数据有效性验证
         function processGIF(arrayBuffer) {
             try {
-                // 确保所有画布都已恢复
                 restoreCanvases();
                 
-                // 检查是否有有效的GIF数据
-                let gifData;
-                if (originalGifData) {
-                    gifData = originalGifData;
-                } else {
-                    gifData = new Uint8Array(arrayBuffer);
-                }
+                let gifData = originalGifData || new Uint8Array(arrayBuffer);
                 
-                // 验证数据是否为有效GIF
                 if (gifData.length < 6 || 
                     gifData[0] !== 71 || gifData[1] !== 73 || 
                     gifData[2] !== 70 || gifData[3] !== 56 || 
@@ -667,9 +659,9 @@
                     // 确保透明度信息被正确处理
                     for (let j = 0; j < imageData.data.length; j += 4) {
                         if (imageData.data[j + 3] === 0) { // 检查透明度
-                            imageData.data[j] = 0;
-                            imageData.data[j + 1] = 0;
-                            imageData.data[j + 2] = 0;
+                            imageData.data[j] = 255; // 背景色R
+                            imageData.data[j + 1] = 255; // 背景色G
+                            imageData.data[j + 2] = 255; // 背景色B
                         }
                     }
                     
