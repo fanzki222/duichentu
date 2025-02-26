@@ -416,7 +416,8 @@
                         workers: 2,
                         quality: 10,
                         workerScript: './gif.worker.js',
-                        repeat: 0
+                        repeat: 0,
+                        background: '#FFFFFF'  // 设置白色背景
                     });
                     
                     // 计算新的画布尺寸
@@ -445,64 +446,72 @@
                     canvas.width = newWidth;
                     canvas.height = newHeight;
                     
-                    // 创建累积画布
-                    const accumulateCanvas = document.createElement('canvas');
-                    accumulateCanvas.width = newWidth;
-                    accumulateCanvas.height = newHeight;
-                    const accumulateCtx = accumulateCanvas.getContext('2d');
-                    
-                    // 跟踪前一帧的状态
-                    let previousFrame = null;
-                    
                     // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
                         try {
-                            const tempCanvas = document.createElement('canvas');
-                            tempCanvas.width = newWidth;
-                            tempCanvas.height = newHeight;
-                            const tempCtx = tempCanvas.getContext('2d');
-                            
-                            // 创建当前帧的画布
+                            // 创建两个画布：一个用于原始帧，一个用于对称结果
                             const frameCanvas = document.createElement('canvas');
                             frameCanvas.width = originalWidth;
                             frameCanvas.height = originalHeight;
                             const frameCtx = frameCanvas.getContext('2d');
-                            frameCtx.putImageData(frame.imageData, 0, 0);
                             
+                            // 先填充白色背景
+                            frameCtx.fillStyle = '#FFFFFF';
+                            frameCtx.fillRect(0, 0, originalWidth, originalHeight);
+                            frameCtx.putImageData(frame.imageData, 0, 0);
+
+                            const resultCanvas = document.createElement('canvas');
+                            resultCanvas.width = newWidth;
+                            resultCanvas.height = newHeight;
+                            const resultCtx = resultCanvas.getContext('2d');
+                            
+                            // 先填充结果画布的背景
+                            resultCtx.fillStyle = '#FFFFFF';
+                            resultCtx.fillRect(0, 0, newWidth, newHeight);
+
                             // 应用对称变换
-                            tempCtx.save();
+                            resultCtx.save();
                             switch (type) {
                                 case 'horizontalUp':
-                                    tempCtx.drawImage(frameCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
-                                    tempCtx.scale(1, -1);
-                                    tempCtx.translate(0, -newHeight);
-                                    tempCtx.drawImage(frameCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                                    // 绘制上半部分
+                                    resultCtx.drawImage(frameCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
+                                    // 绘制镜像部分
+                                    resultCtx.translate(0, newHeight);
+                                    resultCtx.scale(1, -1);
+                                    resultCtx.drawImage(frameCanvas, 0, 0, originalWidth, centerY, 0, 0, originalWidth, centerY);
                                     break;
                                 case 'horizontalDown':
-                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, newHeight / 2, originalWidth, originalHeight - centerY);
-                                    tempCtx.scale(1, -1);
-                                    tempCtx.translate(0, -newHeight / 2);
-                                    tempCtx.drawImage(frameCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, 0, originalWidth, originalHeight - centerY);
+                                    // 绘制下半部分
+                                    resultCtx.drawImage(frameCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, newHeight/2, originalWidth, originalHeight - centerY);
+                                    // 绘制镜像部分
+                                    resultCtx.translate(0, newHeight/2);
+                                    resultCtx.scale(1, -1);
+                                    resultCtx.drawImage(frameCanvas, 0, centerY, originalWidth, originalHeight - centerY, 0, 0, originalWidth, originalHeight - centerY);
                                     break;
                                 case 'verticalLeft':
-                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
-                                    tempCtx.scale(-1, 1);
-                                    tempCtx.translate(-newWidth, 0);
-                                    tempCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                                    // 绘制左半部分
+                                    resultCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
+                                    // 绘制镜像部分
+                                    resultCtx.translate(-newWidth, 0);
+                                    resultCtx.scale(-1, 1);
+                                    resultCtx.drawImage(frameCanvas, 0, 0, centerX, originalHeight, 0, 0, centerX, originalHeight);
                                     break;
                                 case 'verticalRight':
-                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, newWidth / 2, 0, originalWidth - centerX, originalHeight);
-                                    tempCtx.scale(-1, 1);
-                                    tempCtx.translate(-newWidth / 2, 0);
-                                    tempCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
+                                    // 绘制右半部分
+                                    resultCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, newWidth/2, 0, originalWidth - centerX, originalHeight);
+                                    // 绘制镜像部分
+                                    resultCtx.translate(-newWidth/2, 0);
+                                    resultCtx.scale(-1, 1);
+                                    resultCtx.drawImage(frameCanvas, centerX, 0, originalWidth - centerX, originalHeight, 0, 0, originalWidth - centerX, originalHeight);
                                     break;
                             }
-                            tempCtx.restore();
-                            
-                            // 添加帧到GIF
-                            gif.addFrame(tempCanvas, {
+                            resultCtx.restore();
+
+                            // 添加帧到GIF，使用更保守的设置
+                            gif.addFrame(resultCanvas, {
                                 delay: frame.delay,
-                                copy: true
+                                copy: true,
+                                dispose: 2,  // 使用完全重绘模式
                             });
                         } catch (frameError) {
                             console.error('Error processing frame', frameIndex, frameError);
