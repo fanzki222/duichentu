@@ -910,7 +910,7 @@
             link.click();
         }
 
-        // 修改 processFile 函数，添加画布恢复逻辑
+        // 修改 processFile 函数
         async function processFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 alert('请上传图片文件！');
@@ -927,24 +927,27 @@
                                  (firstBytes[4] === 55 || firstBytes[4] === 57) && 
                                  firstBytes[5] === 97;
 
-            // 在更改 isGif 之前恢复所有画布
-            if (isGif && !(isActuallyGif || file.type === 'image/gif')) {
-                // 如果从 GIF 切换到静态图片，确保恢复所有画布
-                const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 
-                                  'verticalLeftCanvas', 'verticalRightCanvas'];
-                
-                canvasIds.forEach(id => {
-                    const imgElement = document.getElementById(id + 'Img');
-                    if (imgElement) {
-                        const canvas = document.createElement('canvas');
-                        canvas.id = id;
-                        canvas.style.maxWidth = '300px';
-                        canvas.style.maxHeight = '300px';
-                        canvas.style.border = '1px solid #ddd';
-                        canvas.style.cursor = 'pointer';
-                        imgElement.parentNode.replaceChild(canvas, imgElement);
-                    }
-                });
+            // 在处理任何新图片之前，先恢复所有画布
+            if (!restoreCanvases()) {
+                console.error('无法恢复画布，中止操作');
+                return;
+            }
+
+            // 确保所有 img 元素都被替换回 canvas
+            const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 
+                              'verticalLeftCanvas', 'verticalRightCanvas'];
+            
+            for (const id of canvasIds) {
+                const imgElement = document.getElementById(id + 'Img');
+                if (imgElement) {
+                    const canvas = document.createElement('canvas');
+                    canvas.id = id;
+                    canvas.style.maxWidth = '300px';
+                    canvas.style.maxHeight = '300px';
+                    canvas.style.border = '1px solid #ddd';
+                    canvas.style.cursor = 'pointer';
+                    imgElement.parentNode.replaceChild(canvas, imgElement);
+                }
             }
 
             isGif = isActuallyGif || file.type === 'image/gif';
@@ -959,11 +962,11 @@
                 processGIF(arrayBuffer);
             } else {
                 rotationSlider.disabled = false;
-                originalImage.src = URL.createObjectURL(file);
-                originalImage.onload = () => {
-                    // 确保所有画布都已恢复
-                    restoreCanvases();
-                    
+                
+                // 创建新的 Image 对象
+                const newImage = new Image();
+                newImage.onload = () => {
+                    originalImage = newImage;  // 更新原始图像引用
                     centerX = originalImage.width / 2;
                     centerY = originalImage.height / 2;
                     currentRotation = 0;
@@ -971,6 +974,7 @@
                     rotationValue.textContent = "0";
                     updatePreviews();
                 };
+                newImage.src = URL.createObjectURL(file);
             }
         }
 
