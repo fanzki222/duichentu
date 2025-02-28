@@ -754,7 +754,7 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数中的帧处理部分
+        // 修改 processGIF 函数
         function processGIF(arrayBuffer) {
             try {
                 // 确保所有画布都已恢复
@@ -768,16 +768,6 @@
                     gifData = new Uint8Array(arrayBuffer);
                 }
                 
-                // 验证数据是否为有效GIF
-                if (gifData.length < 6 || 
-                    gifData[0] !== 71 || gifData[1] !== 73 || 
-                    gifData[2] !== 70 || gifData[3] !== 56 || 
-                    (gifData[4] !== 55 && gifData[4] !== 57) || 
-                    gifData[5] !== 97) {
-                    console.error('无效的GIF数据');
-                    return;
-                }
-                
                 // 创建新的GIF读取器
                 const reader = new GifReader(gifData);
                 const numFrames = reader.numFrames();
@@ -789,53 +779,70 @@
                     console.error('Invalid GIF dimensions:', width, height);
                     return;
                 }
-                
-                // 设置原始画布尺寸
-                originalCanvas.width = width;
-                originalCanvas.height = height;
-                
-                // 如果中心点未设置或超出范围，重置为中心
-                if (typeof centerX === 'undefined' || 
-                    typeof centerY === 'undefined' ||
-                    centerX < 0 || centerX > width ||
-                    centerY < 0 || centerY > height) {
-                    centerX = width / 2;
-                    centerY = height / 2;
-                }
 
-                // 清空并重新填充帧数组
-                gifFrames = [];
-                
-                // 创建临时画布用于帧处理
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
-                const tempCtx = tempCanvas.getContext('2d');
-                
-                // 处理每一帧
-                for (let i = 0; i < numFrames; i++) {
-                    const frameInfo = reader.frameInfo(i);
-                    const imageData = new ImageData(width, height);
-                    reader.decodeAndBlitFrameRGBA(i, imageData.data);
+                // 创建一个临时图像来存储第一帧
+                const tempImage = new Image();
+                tempImage.onload = () => {
+                    // 更新原始图像引用
+                    originalImage = tempImage;
                     
-                    // 将帧数据绘制到临时画布
-                    tempCtx.putImageData(imageData, 0, 0);
+                    // 设置初始中心点（如果未设置）
+                    if (typeof centerX === 'undefined' || typeof centerY === 'undefined') {
+                        centerX = width / 2;
+                        centerY = height / 2;
+                    }
                     
-                    // 存储帧数据
-                    gifFrames.push({ 
-                        imageData: tempCtx.getImageData(0, 0, width, height),
-                        delay: frameInfo.delay * 10
+                    // 清空并重新填充帧数组
+                    gifFrames = [];
+                    
+                    // 创建临时画布用于帧处理
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = width;
+                    tempCanvas.height = height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 处理每一帧
+                    for (let i = 0; i < numFrames; i++) {
+                        const frameInfo = reader.frameInfo(i);
+                        const imageData = new ImageData(width, height);
+                        reader.decodeAndBlitFrameRGBA(i, imageData.data);
+                        
+                        // 将帧数据绘制到临时画布
+                        tempCtx.putImageData(imageData, 0, 0);
+                        
+                        // 存储帧数据
+                        gifFrames.push({ 
+                            imageData: tempCtx.getImageData(0, 0, width, height),
+                            delay: frameInfo.delay * 10
+                        });
+                    }
+                    
+                    // 设置原始画布尺寸并绘制第一帧
+                    if (gifFrames.length > 0) {
+                        originalCanvas.width = width;
+                        originalCanvas.height = height;
+                        const ctxOriginal = originalCanvas.getContext('2d');
+                        ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                        
+                        // 更新所有预览
+                        updatePreviews();
+                    }
+                };
+
+                // 创建第一帧的 Blob URL
+                if (gifFrames.length === 0) {
+                    const firstFrameCanvas = document.createElement('canvas');
+                    firstFrameCanvas.width = width;
+                    firstFrameCanvas.height = height;
+                    const firstFrameCtx = firstFrameCanvas.getContext('2d');
+                    const firstFrameData = new ImageData(width, height);
+                    reader.decodeAndBlitFrameRGBA(0, firstFrameData.data);
+                    firstFrameCtx.putImageData(firstFrameData, 0, 0);
+                    
+                    // 将第一帧转换为 Blob URL 并加载到临时图像
+                    firstFrameCanvas.toBlob((blob) => {
+                        tempImage.src = URL.createObjectURL(blob);
                     });
-                }
-                
-                // 绘制第一帧
-                if (gifFrames.length > 0) {
-                    const ctxOriginal = originalCanvas.getContext('2d');
-                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                    drawCenterPoint(ctxOriginal);
-                    
-                    // 更新所有预览
-                    updatePreviews();
                 }
                 
             } catch (error) {
