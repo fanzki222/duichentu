@@ -528,8 +528,8 @@
                 const gif = new GIF({
                     workers: 2,
                     quality: 10,
-                    width: canvas.width,
-                    height: canvas.height
+                    width: originalCanvas.width,
+                    height: originalCanvas.height
                 });
 
                 // 处理每一帧...
@@ -543,11 +543,17 @@
                     // 绘制当前帧
                     tempCtx.putImageData(frame.imageData, 0, 0);
                     
+                    // 创建对称画布
+                    const symmetryCanvas = document.createElement('canvas');
+                    symmetryCanvas.width = canvas.width;  // 使用目标画布的尺寸
+                    symmetryCanvas.height = canvas.height;
+                    const symmetryCtx = symmetryCanvas.getContext('2d');
+                    
                     // 应用对称效果
-                    applySymmetry(tempCtx, type);
+                    applySymmetry(symmetryCtx, type, tempCanvas);  // 传入源画布
                     
                     // 添加到GIF
-                    gif.addFrame(tempCanvas, {
+                    gif.addFrame(symmetryCanvas, {
                         delay: frame.delay,
                         copy: true
                     });
@@ -562,7 +568,9 @@
                     imgElement.style.cursor = 'pointer';
                     imgElement.src = URL.createObjectURL(blob);
                     
-                    canvas.parentNode.replaceChild(imgElement, canvas);
+                    if (canvas.parentNode) {
+                        canvas.parentNode.replaceChild(imgElement, canvas);
+                    }
                 });
 
                 gif.render();
@@ -575,22 +583,23 @@
         }
 
         // 修改 applySymmetry 函数
-        function applySymmetry(ctx, type) {
-            // 创建临时画布来存储没有对称轴的原图
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = originalCanvas.width;
-            tempCanvas.height = originalCanvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            // 重新绘制旋转后的原图（不包含对称轴和中心点）
-            tempCtx.save();
-            tempCtx.translate(tempCanvas.width/2, tempCanvas.height/2);
-            tempCtx.rotate(currentRotation * Math.PI / 180);
-            tempCtx.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-            tempCtx.restore();
-            
-            // 使用这个干净的画布作为源
-            const sourceCanvas = tempCanvas;
+        function applySymmetry(ctx, type, sourceCanvas = null) {
+            // 如果没有提供源画布，使用临时画布
+            if (!sourceCanvas) {
+                // 创建临时画布来存储没有对称轴的原图
+                sourceCanvas = document.createElement('canvas');
+                sourceCanvas.width = originalCanvas.width;
+                sourceCanvas.height = originalCanvas.height;
+                const tempCtx = sourceCanvas.getContext('2d');
+                
+                // 重新绘制旋转后的原图（不包含对称轴和中心点）
+                tempCtx.save();
+                tempCtx.translate(sourceCanvas.width/2, sourceCanvas.height/2);
+                tempCtx.rotate(currentRotation * Math.PI / 180);
+                tempCtx.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+                tempCtx.restore();
+            }
+
             const sourceWidth = sourceCanvas.width;
             const sourceHeight = sourceCanvas.height;
 
