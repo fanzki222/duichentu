@@ -463,9 +463,16 @@
 
         // 修改 generateSymmetry 函数
         function generateSymmetry(canvas, type) {
+            // 确保画布存在且有父节点
             if (!canvas || !canvas.parentNode) {
-                console.error('画布元素没有父节点:', type);
-                return;
+                // 尝试恢复画布
+                restoreCanvases();
+                // 重新获取画布
+                canvas = document.getElementById(type + 'Canvas');
+                if (!canvas || !canvas.parentNode) {
+                    console.error('画布元素没有父节点:', type);
+                    return;
+                }
             }
 
             if (isGif) {
@@ -616,11 +623,20 @@
 
                         // 所有帧处理完成后开始渲染
                         gif.on('finished', function(blob) {
+                            // 确保画布仍然存在
+                            const currentCanvas = document.getElementById(canvas.id);
+                            if (!currentCanvas || !currentCanvas.parentNode) {
+                                console.error('找不到目标画布:', canvas.id);
+                                return;
+                            }
+
                             const img = document.createElement('img');
                             img.src = URL.createObjectURL(blob);
-                            img.style = canvas.style.cssText;
-                            img.id = canvas.id + 'Img';
-                            canvas.parentNode.replaceChild(img, canvas);
+                            img.style = currentCanvas.style.cssText;
+                            img.id = currentCanvas.id + 'Img';
+
+                            // 使用当前的画布元素而不是可能已经失效的引用
+                            currentCanvas.parentNode.replaceChild(img, currentCanvas);
                         });
 
                         gif.render();
@@ -939,7 +955,7 @@
             }
         }
 
-        // 添加 restoreCanvases 函数
+        // 修改 restoreCanvases 函数
         function restoreCanvases() {
             try {
                 const previewContainer = document.getElementById('previewContainer');
@@ -948,6 +964,10 @@
                     return false;
                 }
 
+                // 移除所有现有的预览项
+                const existingPreviews = previewContainer.querySelectorAll('.preview-item:not(:first-child)');
+                existingPreviews.forEach(preview => preview.remove());
+
                 const canvasConfigs = [
                     { id: 'horizontalUpCanvas', text: '水平上对称' },
                     { id: 'horizontalDownCanvas', text: '水平下对称' },
@@ -955,37 +975,32 @@
                     { id: 'verticalRightCanvas', text: '垂直右对称' }
                 ];
 
-                for (const config of canvasConfigs) {
-                    let canvas = document.getElementById(config.id);
-                    let containerDiv = canvas ? canvas.parentNode : null;
-
-                    if (!containerDiv || !containerDiv.classList.contains('preview-item')) {
-                        // 如果画布或其容器不存在，创建新的
-                        containerDiv = document.createElement('div');
-                        containerDiv.className = 'preview-item';
-                        
-                        canvas = document.createElement('canvas');
-                        canvas.id = config.id;
-                        
-                        const p = document.createElement('p');
-                        p.textContent = config.text;
-                        
-                        const copyBtn = document.createElement('button');
-                        copyBtn.textContent = '复制';
-                        copyBtn.onclick = () => copyImage(config.id);
-                        
-                        const downloadBtn = document.createElement('button');
-                        downloadBtn.textContent = '下载';
-                        downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
-                        
-                        containerDiv.appendChild(canvas);
-                        containerDiv.appendChild(p);
-                        containerDiv.appendChild(copyBtn);
-                        containerDiv.appendChild(downloadBtn);
-                        
-                        previewContainer.appendChild(containerDiv);
-                    }
-                }
+                // 重新创建所有预览项
+                canvasConfigs.forEach(config => {
+                    const containerDiv = document.createElement('div');
+                    containerDiv.className = 'preview-item';
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.id = config.id;
+                    
+                    const p = document.createElement('p');
+                    p.textContent = config.text;
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.textContent = '复制';
+                    copyBtn.onclick = () => copyImage(config.id);
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = '下载';
+                    downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
+                    
+                    containerDiv.appendChild(canvas);
+                    containerDiv.appendChild(p);
+                    containerDiv.appendChild(copyBtn);
+                    containerDiv.appendChild(downloadBtn);
+                    
+                    previewContainer.appendChild(containerDiv);
+                });
                 
                 return true;
             } catch (error) {
