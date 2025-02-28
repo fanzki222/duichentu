@@ -978,7 +978,7 @@
             }
         }
 
-        // 添加 restoreCanvases 函数
+        // 修改 restoreCanvases 函数
         function restoreCanvases() {
             try {
                 const previewContainer = document.getElementById('previewContainer');
@@ -995,16 +995,34 @@
                 ];
 
                 for (const config of canvasConfigs) {
-                    let canvas = document.getElementById(config.id);
-                    let containerDiv = canvas ? canvas.parentNode : null;
+                    // 查找现有的预览项容器
+                    const existingPreviewItem = Array.from(previewContainer.children).find(child => {
+                        return child.querySelector(`#${config.id}`) || child.querySelector(`#${config.id}Img`);
+                    });
 
-                    if (!containerDiv || !containerDiv.classList.contains('preview-item')) {
-                        // 如果画布或其容器不存在，创建新的
-                        containerDiv = document.createElement('div');
+                    if (existingPreviewItem) {
+                        // 如果找到现有的预览项，检查是否需要将 img 替换回 canvas
+                        const imgElement = existingPreviewItem.querySelector(`#${config.id}Img`);
+                        if (imgElement) {
+                            const canvas = document.createElement('canvas');
+                            canvas.id = config.id;
+                            canvas.style.maxWidth = '300px';
+                            canvas.style.maxHeight = '300px';
+                            canvas.style.border = '1px solid #ddd';
+                            canvas.style.cursor = 'pointer';
+                            imgElement.parentNode.replaceChild(canvas, imgElement);
+                        }
+                    } else {
+                        // 如果没有找到预览项，创建新的
+                        const containerDiv = document.createElement('div');
                         containerDiv.className = 'preview-item';
                         
-                        canvas = document.createElement('canvas');
+                        const canvas = document.createElement('canvas');
                         canvas.id = config.id;
+                        canvas.style.maxWidth = '300px';
+                        canvas.style.maxHeight = '300px';
+                        canvas.style.border = '1px solid #ddd';
+                        canvas.style.cursor = 'pointer';
                         
                         const p = document.createElement('p');
                         p.textContent = config.text;
