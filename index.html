@@ -903,6 +903,61 @@
                 };
             }
         }
+
+        // 添加 restoreCanvases 函数
+        function restoreCanvases() {
+            try {
+                const previewContainer = document.getElementById('previewContainer');
+                if (!previewContainer) {
+                    console.error('找不到预览容器');
+                    return false;
+                }
+
+                const canvasConfigs = [
+                    { id: 'horizontalUpCanvas', text: '水平上对称' },
+                    { id: 'horizontalDownCanvas', text: '水平下对称' },
+                    { id: 'verticalLeftCanvas', text: '垂直左对称' },
+                    { id: 'verticalRightCanvas', text: '垂直右对称' }
+                ];
+
+                for (const config of canvasConfigs) {
+                    let canvas = document.getElementById(config.id);
+                    let containerDiv = canvas ? canvas.parentNode : null;
+
+                    if (!containerDiv || !containerDiv.classList.contains('preview-item')) {
+                        // 如果画布或其容器不存在，创建新的
+                        containerDiv = document.createElement('div');
+                        containerDiv.className = 'preview-item';
+                        
+                        canvas = document.createElement('canvas');
+                        canvas.id = config.id;
+                        
+                        const p = document.createElement('p');
+                        p.textContent = config.text;
+                        
+                        const copyBtn = document.createElement('button');
+                        copyBtn.textContent = '复制';
+                        copyBtn.onclick = () => copyImage(config.id);
+                        
+                        const downloadBtn = document.createElement('button');
+                        downloadBtn.textContent = '下载';
+                        downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
+                        
+                        containerDiv.appendChild(canvas);
+                        containerDiv.appendChild(p);
+                        containerDiv.appendChild(copyBtn);
+                        containerDiv.appendChild(downloadBtn);
+                        
+                        previewContainer.appendChild(containerDiv);
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('恢复画布时出错:', error);
+                return false;
+            }
+        }
     </script>
 </body>
 </html>
