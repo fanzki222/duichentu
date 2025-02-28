@@ -210,7 +210,7 @@
 
         // 修改 updatePreviews 函数
         function updatePreviews() {
-            const ctxOriginal = originalCanvas.getContext('2d');
+            const ctxOriginal = originalCanvas.getContext('2d', { willReadFrequently: true });
             
             // 计算旋转后需要的画布大小
             const angle = currentRotation * Math.PI / 180;
@@ -242,7 +242,7 @@
 
         // 修改 updateOriginalPreview 函数
         function updateOriginalPreview() {
-            const ctxOriginal = originalCanvas.getContext('2d');
+            const ctxOriginal = originalCanvas.getContext('2d', { willReadFrequently: true });
             
             // 保存当前中心点相对位置（转换为相对坐标）
             const relativeX = centerX / originalCanvas.width;
@@ -601,7 +601,7 @@
                 }
             } else {
                 // 静态图像处理
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 applySymmetry(ctx, type);
             }
@@ -613,7 +613,7 @@
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = originalCanvas.width;
             tempCanvas.height = originalCanvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
             
             // 重新绘制旋转后的原图（不包含对称轴和中心点）
             tempCtx.save();
@@ -764,7 +764,7 @@
                 
                 // 绘制第一帧
                 if (gifFrames.length > 0) {
-                    const ctxOriginal = originalCanvas.getContext('2d');
+                    const ctxOriginal = originalCanvas.getContext('2d', { willReadFrequently: true });
                     ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
                     drawCenterPoint(ctxOriginal);
                     
@@ -794,7 +794,7 @@
                             const resultCanvas = document.createElement('canvas');
                             resultCanvas.width = width;
                             resultCanvas.height = height;
-                            const resultCtx = resultCanvas.getContext('2d');
+                            const resultCtx = resultCanvas.getContext('2d', { willReadFrequently: true });
                             
                             // 绘制当前帧
                             resultCtx.putImageData(frame.imageData, 0, 0);
