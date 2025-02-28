@@ -283,22 +283,22 @@
 
         // 修改原始画布的点击事件处理
         originalCanvas.addEventListener('click', (e) => {
-                const rect = originalCanvas.getBoundingClientRect();
-                const scaleX = originalCanvas.width / rect.width;
-                const scaleY = originalCanvas.height / rect.height;
+            // 确保所有画布都已恢复
+            restoreCanvases();
             
-            // 计算点击位置相对于画布的实际坐标
+            const rect = originalCanvas.getBoundingClientRect();
+            const scaleX = originalCanvas.width / rect.width;
+            const scaleY = originalCanvas.height / rect.height;
+            
             const clickX = (e.clientX - rect.left) * scaleX;
             const clickY = (e.clientY - rect.top) * scaleY;
             
-            // 更新中心点位置
             centerX = clickX;
             centerY = clickY;
             
-            // 更新原图预览（保持旋转角度）
             updateOriginalPreview();
             
-            // 更新所有对称预览
+            // 生成对称图像
             generateSymmetry(horizontalUpCanvas, 'horizontalUp');
             generateSymmetry(horizontalDownCanvas, 'horizontalDown');
             generateSymmetry(verticalLeftCanvas, 'verticalLeft');
@@ -910,7 +910,7 @@
             link.click();
         }
 
-        // 添加 processFile 函数
+        // 修改 processFile 函数，添加画布恢复逻辑
         async function processFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 alert('请上传图片文件！');
@@ -927,36 +927,48 @@
                                  (firstBytes[4] === 55 || firstBytes[4] === 57) && 
                                  firstBytes[5] === 97;
 
+            // 在更改 isGif 之前恢复所有画布
+            if (isGif && !(isActuallyGif || file.type === 'image/gif')) {
+                // 如果从 GIF 切换到静态图片，确保恢复所有画布
+                const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 
+                                  'verticalLeftCanvas', 'verticalRightCanvas'];
+                
+                canvasIds.forEach(id => {
+                    const imgElement = document.getElementById(id + 'Img');
+                    if (imgElement) {
+                        const canvas = document.createElement('canvas');
+                        canvas.id = id;
+                        canvas.style.maxWidth = '300px';
+                        canvas.style.maxHeight = '300px';
+                        canvas.style.border = '1px solid #ddd';
+                        canvas.style.cursor = 'pointer';
+                        imgElement.parentNode.replaceChild(canvas, imgElement);
+                    }
+                });
+            }
+
             isGif = isActuallyGif || file.type === 'image/gif';
 
             if (isGif) {
-                // 重置旋转角度为0
                 currentRotation = 0;
                 rotationSlider.value = "0";
                 rotationValue.textContent = "0";
-                
-                // 禁用旋转滑块
                 rotationSlider.disabled = true;
-                
-                // 显示GIF提示
                 alert('已检测到GIF图片。GIF图片不支持旋转功能，将使用默认角度(0°)进行对称处理。');
-                
                 originalGifData = new Uint8Array(arrayBuffer.slice(0));
                 processGIF(arrayBuffer);
             } else {
-                // 启用旋转滑块
                 rotationSlider.disabled = false;
-                
-                // 处理静态图片
                 originalImage.src = URL.createObjectURL(file);
                 originalImage.onload = () => {
+                    // 确保所有画布都已恢复
+                    restoreCanvases();
+                    
                     centerX = originalImage.width / 2;
                     centerY = originalImage.height / 2;
-                    
                     currentRotation = 0;
                     rotationSlider.value = "0";
                     rotationValue.textContent = "0";
-                    
                     updatePreviews();
                 };
             }
