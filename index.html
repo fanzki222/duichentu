@@ -934,9 +934,19 @@
                             img.style.maxHeight = '300px';
                             img.style.border = '1px solid #ddd';
                             
+                            // 保留原始画布，但隐藏它
+                            canvas.style.display = 'none';
+                            
                             const parent = canvas.parentNode;
                             if (parent) {
-                                parent.replaceChild(img, canvas);
+                                // 不再替换画布，而是添加图片
+                                parent.insertBefore(img, canvas.nextSibling);
+                                
+                                // 移除可能存在的旧图片
+                                const oldImg = document.getElementById(img.id);
+                                if (oldImg && oldImg !== img) {
+                                    parent.removeChild(oldImg);
+                                }
                             }
                         });
 
@@ -1093,6 +1103,13 @@
                         containerDiv.appendChild(downloadBtn);
                         
                         previewContainer.appendChild(containerDiv);
+                    } else {
+                        // 显示画布，移除可能存在的GIF图片
+                        canvas.style.display = '';
+                        const img = document.getElementById(config.id + 'Img');
+                        if (img) {
+                            containerDiv.removeChild(img);
+                        }
                     }
                 }
                 
