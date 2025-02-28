@@ -504,22 +504,9 @@
 
         // 修改 generateSymmetry 函数
         function generateSymmetry(canvas, type) {
-            // 确保传入的是画布元素
-            if (!(canvas instanceof HTMLCanvasElement)) {
-                console.error('传入的不是画布元素:', type);
+            if (!canvas || !canvas.parentNode) {
+                console.error('画布元素没有父节点:', type);
                 return;
-            }
-
-            // 确保画布有父节点
-            if (!canvas.parentNode) {
-                // 尝试恢复画布
-                restoreCanvases();
-                // 重新获取画布元素
-                canvas = document.getElementById(canvas.id);
-                if (!canvas || !canvas.parentNode) {
-                    console.error('画布元素没有父节点:', type);
-                    return;
-                }
             }
 
             if (isGif) {
@@ -529,6 +516,7 @@
                     const sourceHeight = originalCanvas.height;
                     let newWidth, newHeight;
                     
+                    // 根据对称类型计算新的画布尺寸
                     switch (type) {
                         case 'horizontalUp':
                             newWidth = sourceWidth;
@@ -548,80 +536,86 @@
                             break;
                     }
 
-                    // 创建新的 GIF 编码器，使用较小的尺寸
+                    // 确保尺寸有效
+                    if (newWidth <= 0 || newHeight <= 0) {
+                        console.error('无效的目标尺寸:', newWidth, newHeight);
+                        return;
+                    }
+
+                    // 创建新的 GIF 编码器
                     const gif = new GIF({
                         workers: 2,
                         quality: 10,
-                        width: Math.min(newWidth, 800),  // 限制最大尺寸
-                        height: Math.min(newHeight, 800),
-                        workerScript: 'gif.worker.js'  // 改回原来的本地路径
+                        width: newWidth,
+                        height: newHeight,
+                        workerScript: 'gif.worker.js'
                     });
 
                     // 为每一帧创建对称效果
                     gifFrames.forEach((frame, frameIndex) => {
-                        // 创建临时画布
+                        // 创建临时画布并设置正确的尺寸
                         const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = Math.min(newWidth, 800);
-                        tempCanvas.height = Math.min(newHeight, 800);
+                        tempCanvas.width = newWidth;
+                        tempCanvas.height = newHeight;
                         const tempCtx = tempCanvas.getContext('2d');
 
-                        // 应用对称效果
+                        // 创建源帧画布
                         const frameCanvas = document.createElement('canvas');
                         frameCanvas.width = frame.imageData.width;
                         frameCanvas.height = frame.imageData.height;
                         const frameCtx = frameCanvas.getContext('2d');
                         frameCtx.putImageData(frame.imageData, 0, 0);
 
-                        // 根据对称类型应用变换
+                        // 应用对称效果
                         tempCtx.save();
                         switch (type) {
                             case 'horizontalUp':
                                 // 绘制上半部分
                                 tempCtx.drawImage(frameCanvas, 
-                                    0, 0, sourceWidth, centerY,
-                                    0, 0, tempCanvas.width, centerY);
+                                    0, 0, frameCanvas.width, centerY,
+                                    0, 0, newWidth, centerY);
                                 // 绘制镜像部分
-                                tempCtx.translate(0, tempCanvas.height);
+                                tempCtx.translate(0, newHeight);
                                 tempCtx.scale(1, -1);
                                 tempCtx.drawImage(frameCanvas,
-                                    0, 0, sourceWidth, centerY,
-                                    0, 0, tempCanvas.width, centerY);
+                                    0, 0, frameCanvas.width, centerY,
+                                    0, 0, newWidth, centerY);
                                 break;
                             case 'horizontalDown':
                                 // 绘制下半部分
                                 tempCtx.drawImage(frameCanvas,
-                                    0, centerY, sourceWidth, sourceHeight - centerY,
-                                    0, tempCanvas.height/2, sourceWidth, sourceHeight - centerY);
+                                    0, centerY, frameCanvas.width, frameCanvas.height - centerY,
+                                    0, newHeight/2, frameCanvas.width, frameCanvas.height - centerY);
                                 // 绘制镜像部分
-                                tempCtx.translate(0, tempCanvas.height/2);
+                                tempCtx.translate(0, newHeight/2);
                                 tempCtx.scale(1, -1);
                                 tempCtx.drawImage(frameCanvas,
-                                    0, centerY, sourceWidth, sourceHeight - centerY,
-                                    0, 0, sourceWidth, sourceHeight - centerY);
+                                    0, centerY, frameCanvas.width, frameCanvas.height - centerY,
+                                    0, 0, frameCanvas.width, frameCanvas.height - centerY);
                                 break;
                             case 'verticalLeft':
                                 // 绘制左半部分
                                 tempCtx.drawImage(frameCanvas,
-                                    0, 0, centerX, sourceHeight,
-                                    0, 0, centerX, sourceHeight);
+                                    0, 0, centerX, frameCanvas.height,
+                                    0, 0, centerX, frameCanvas.height);
                                 // 绘制镜像部分
-                                tempCtx.translate(tempCanvas.width, 0);
+                                tempCtx.translate(newWidth, 0);
                                 tempCtx.scale(-1, 1);
                                 tempCtx.drawImage(frameCanvas,
-                                    0, 0, centerX, sourceHeight,
-                                    0, 0, centerX, sourceHeight);
+                                    0, 0, centerX, frameCanvas.height,
+                                    0, 0, centerX, frameCanvas.height);
                                 break;
                             case 'verticalRight':
                                 // 绘制右半部分
                                 tempCtx.drawImage(frameCanvas,
-                                    centerX, 0, sourceWidth - centerX, sourceHeight,
-                                    tempCanvas.width/2, 0, sourceWidth - centerX, sourceHeight);
+                                    centerX, 0, frameCanvas.width - centerX, frameCanvas.height,
+                                    newWidth/2, 0, frameCanvas.width - centerX, frameCanvas.height);
                                 // 绘制镜像部分
-                                tempCtx.translate(tempCanvas.width/2, 0);
+                                tempCtx.translate(newWidth/2, 0);
                                 tempCtx.scale(-1, 1);
                                 tempCtx.drawImage(frameCanvas,
-                                    centerX, 0, sourceWidth - centerX, sourceHeight,
-                                    0, 0, sourceWidth - centerX, sourceHeight);
+                                    centerX, 0, frameCanvas.width - centerX, frameCanvas.height,
+                                    0, 0, frameCanvas.width - centerX, frameCanvas.height);
                                 break;
                         }
                         tempCtx.restore();
@@ -633,10 +627,8 @@
                         });
 
                         // 清理临时画布
-                        frameCanvas.width = 1;
-                        frameCanvas.height = 1;
-                        tempCanvas.width = 1;
-                        tempCanvas.height = 1;
+                        frameCanvas.remove();
+                        tempCanvas.remove();
                     });
 
                     // 渲染完成后替换画布为图片
