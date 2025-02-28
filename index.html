@@ -552,7 +552,7 @@
                     });
 
                     // 使用 Promise 处理每一帧
-                    const processFrame = async (frame) => {
+                    const processFrame = (frame) => {
                         return new Promise((resolve) => {
                             // 创建源帧画布
                             const frameCanvas = document.createElement('canvas');
@@ -621,19 +621,31 @@
                             }
                             resultCtx.restore();
 
-                            // 确保画布内容已经绘制完成
-                            setTimeout(() => {
-                                gif.addFrame(resultCanvas, {
+                            // 创建一个新的图像对象来确保画布内容已完全渲染
+                            const img = new Image();
+                            img.onload = () => {
+                                const finalCanvas = document.createElement('canvas');
+                                finalCanvas.width = newWidth;
+                                finalCanvas.height = newHeight;
+                                const finalCtx = finalCanvas.getContext('2d');
+                                finalCtx.drawImage(img, 0, 0);
+
+                                gif.addFrame(finalCanvas, {
                                     delay: frame.delay,
                                     copy: true
                                 });
-                                
-                                // 清理临时画布
+
+                                // 清理资源
                                 frameCanvas.remove();
                                 resultCanvas.remove();
-                                
+                                finalCanvas.remove();
+                                URL.revokeObjectURL(img.src);
+
                                 resolve();
-                            }, 0);
+                            };
+
+                            // 将结果画布转换为 DataURL
+                            img.src = resultCanvas.toDataURL();
                         });
                     };
 
