@@ -274,7 +274,7 @@
             drawCenterPoint(ctxOriginal);
         }
 
-        // 修改原始画布的点击事件处理
+        // 修改 originalCanvas 的点击事件处理
         originalCanvas.addEventListener('click', (e) => {
             const rect = originalCanvas.getBoundingClientRect();
             const scaleX = originalCanvas.width / rect.width;
@@ -291,11 +291,18 @@
             // 更新原图预览（保持旋转角度）
             updateOriginalPreview();
             
-            // 更新所有对称预览
-            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
-            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
-            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
-            generateSymmetry(verticalRightCanvas, 'verticalRight');
+            if (isGif) {
+                // 如果是GIF，先恢复所有画布
+                restoreCanvases();
+                // 重新处理GIF
+                processGIF(originalGifData.buffer);
+            } else {
+                // 静态图像的对称处理
+                generateSymmetry(horizontalUpCanvas, 'horizontalUp');
+                generateSymmetry(horizontalDownCanvas, 'horizontalDown');
+                generateSymmetry(verticalLeftCanvas, 'verticalLeft');
+                generateSymmetry(verticalRightCanvas, 'verticalRight');
+            }
         });
 
         // 修改 drawCenterPoint 函数
@@ -700,11 +707,14 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数，简化帧处理部分
+        // 修改 processGIF 函数
         function processGIF(arrayBuffer) {
             try {
                 // 确保所有画布都已恢复
-                restoreCanvases();
+                if (!restoreCanvases()) {
+                    console.error('无法恢复画布元素，中止GIF处理');
+                    return;
+                }
                 
                 // 检查是否有有效的GIF数据
                 let gifData;
