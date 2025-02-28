@@ -547,7 +547,7 @@
                         const resultCtx = resultCanvas.getContext('2d');
                         
                         // 应用对称效果
-                        applySymmetry(resultCtx, type, frameCanvas);
+                        applySymmetry(resultCtx, type);
                         
                         // 添加帧到GIF
                         gif.addFrame(resultCanvas, {
@@ -580,8 +580,9 @@
         }
 
         // 修改 applySymmetry 函数
-        function applySymmetry(ctx, type, sourceCanvas) {
-            // 获取源画布（使用原始画布或当前帧）
+        function applySymmetry(ctx, type) {
+            // 获取源画布（使用原始画布）
+            const sourceCanvas = originalCanvas;
             const sourceWidth = sourceCanvas.width;
             const sourceHeight = sourceCanvas.height;
 
