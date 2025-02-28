@@ -741,17 +741,21 @@
                     return;
                 }
                 
-                // 保存当前中心点的相对位置
-                const relativeX = centerX ? centerX / originalCanvas.width : 0.5;
-                const relativeY = centerY ? centerY / originalCanvas.height : 0.5;
-                
                 // 设置原始画布尺寸
                 originalCanvas.width = width;
                 originalCanvas.height = height;
                 
-                // 根据相对位置更新中心点
-                centerX = width * relativeX;
-                centerY = height * relativeY;
+                // 如果中心点未设置（首次加载），则设置为中心
+                if (typeof centerX === 'undefined' || typeof centerY === 'undefined') {
+                    centerX = width / 2;
+                    centerY = height / 2;
+                } else {
+                    // 如果画布尺寸改变，保持中心点的相对位置
+                    const relativeX = centerX / originalCanvas.width;
+                    const relativeY = centerY / originalCanvas.height;
+                    centerX = width * relativeX;
+                    centerY = height * relativeY;
+                }
 
                 // 清空并重新填充帧数组
                 gifFrames = [];
