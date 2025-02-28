@@ -272,11 +272,18 @@
             // 绘制中心点
             drawCenterPoint(ctxOriginal);
 
-            // 生成对称图像
-            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
-            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
-            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
-            generateSymmetry(verticalRightCanvas, 'verticalRight');
+            // 生成对称图像（使用getElementById获取画布元素）
+            const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 
+                              'verticalLeftCanvas', 'verticalRightCanvas'];
+                              
+            canvasIds.forEach(id => {
+                const canvas = document.getElementById(id);
+                if (canvas) {
+                    generateSymmetry(canvas, id.replace('Canvas', '').toLowerCase());
+                } else {
+                    console.error(`找不到画布元素: ${id}`);
+                }
+            });
         }
 
         // 修改 updateOriginalPreview 函数
@@ -497,9 +504,22 @@
 
         // 修改 generateSymmetry 函数
         function generateSymmetry(canvas, type) {
-            if (!canvas || !canvas.parentNode) {
-                console.error('画布元素没有父节点:', type);
+            // 确保传入的是画布元素
+            if (!(canvas instanceof HTMLCanvasElement)) {
+                console.error('传入的不是画布元素:', type);
                 return;
+            }
+
+            // 确保画布有父节点
+            if (!canvas.parentNode) {
+                // 尝试恢复画布
+                restoreCanvases();
+                // 重新获取画布元素
+                canvas = document.getElementById(canvas.id);
+                if (!canvas || !canvas.parentNode) {
+                    console.error('画布元素没有父节点:', type);
+                    return;
+                }
             }
 
             if (isGif) {
