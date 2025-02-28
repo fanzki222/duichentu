@@ -208,6 +208,9 @@
 
         // 修改 updatePreviews 函数
         function updatePreviews() {
+            // 确保所有画布都已恢复
+            restoreCanvases();
+            
             const ctxOriginal = originalCanvas.getContext('2d');
             
             // 计算旋转后需要的画布大小
@@ -456,6 +459,21 @@
 
         // 修改 generateSymmetry 函数
         function generateSymmetry(canvas, type) {
+            // 首先尝试恢复 canvas 元素（如果它被替换为了 img）
+            const imgElement = document.getElementById(canvas.id + 'Img');
+            if (imgElement) {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = canvas.id;
+                newCanvas.style.maxWidth = '300px';
+                newCanvas.style.maxHeight = '300px';
+                newCanvas.style.border = '1px solid #ddd';
+                newCanvas.style.cursor = 'pointer';
+                
+                // 替换回 canvas
+                imgElement.parentNode.replaceChild(newCanvas, imgElement);
+                canvas = newCanvas;
+            }
+
             if (!canvas || !canvas.parentNode) {
                 console.error('画布元素没有父节点:', type);
                 return;
