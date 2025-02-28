@@ -285,46 +285,12 @@
             });
         }
 
-        // 修改 updateOriginalPreview 函数
-        function updateOriginalPreview() {
-            const ctxOriginal = originalCanvas.getContext('2d');
-            
-            // 保存当前中心点相对位置（转换为相对坐标）
-            const relativeX = centerX / originalCanvas.width;
-            const relativeY = centerY / originalCanvas.height;
-            
-            // 计算旋转后需要的画布大小
-            const angle = currentRotation * Math.PI / 180;
-            const cos = Math.abs(Math.cos(angle));
-            const sin = Math.abs(Math.sin(angle));
-            const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
-            const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
-            
-            // 调整画布大小
-            originalCanvas.width = newWidth;
-            originalCanvas.height = newHeight;
-            
-            // 绘制旋转后的图像
-            ctxOriginal.save();
-            ctxOriginal.translate(newWidth/2, newHeight/2);
-            ctxOriginal.rotate(angle);
-            ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-            ctxOriginal.restore();
-            
-            // 更新中心点位置（保持相对位置）
-            centerX = newWidth * relativeX;
-            centerY = newHeight * relativeY;
-            
-            // 重新绘制中心点
-            drawCenterPoint(ctxOriginal);
-        }
-
         // 修改原始画布的点击事件处理
         originalCanvas.addEventListener('click', (e) => {
-                const rect = originalCanvas.getBoundingClientRect();
-                const scaleX = originalCanvas.width / rect.width;
-                const scaleY = originalCanvas.height / rect.height;
-            
+            const rect = originalCanvas.getBoundingClientRect();
+            const scaleX = originalCanvas.width / rect.width;
+            const scaleY = originalCanvas.height / rect.height;
+
             // 计算点击位置相对于画布的实际坐标
             const clickX = (e.clientX - rect.left) * scaleX;
             const clickY = (e.clientY - rect.top) * scaleY;
@@ -333,14 +299,8 @@
             centerX = clickX;
             centerY = clickY;
             
-            // 更新原图预览（保持旋转角度）
-            updateOriginalPreview();
-            
-            // 更新所有对称预览
-            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
-            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
-            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
-            generateSymmetry(verticalRightCanvas, 'verticalRight');
+            // 更新所有预览（包括原图和对称图）
+            updatePreviews();
         });
 
         // 修改 drawCenterPoint 函数
