@@ -940,11 +940,25 @@
                 console.log('检测到文件实际为GIF格式，尽管MIME类型为:', file.type);
             }
 
-            // 保存原始GIF数据
+            // 修改 processFile 函数中处理 GIF 的部分
             if (isGif) {
+                // 禁用旋转控制并重置角度
+                rotationSlider.disabled = true;
+                rotationSlider.value = "0";
+                rotationValue.textContent = "0";
+                currentRotation = 0;
+                
+                // 添加提示信息
+                rotationValue.textContent = "GIF 不支持旋转";
+                rotationValue.style.color = "#999";
+                
                 originalGifData = new Uint8Array(arrayBuffer.slice(0));
                 processGIF(arrayBuffer);
             } else {
+                // 启用旋转控制
+                rotationSlider.disabled = false;
+                rotationValue.style.color = "#666";
+                
                 // 处理静态图片
                 originalImage.src = URL.createObjectURL(file);
                 originalImage.onload = () => {
