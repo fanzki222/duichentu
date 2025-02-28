@@ -470,57 +470,104 @@
                 canvas = document.getElementById(canvas);
             }
 
-            // 如果是GIF，尝试获取对应的img元素
+            // 确保画布元素存在
+            if (!canvas) {
+                console.error('找不到画布元素:', type);
+                return;
+            }
+
+            // 确保画布有父节点
+            if (!canvas.parentNode) {
+                // 尝试从预览容器中找到对应的预览项
+                const previewContainer = document.getElementById('previewContainer');
+                const existingPreviewItem = Array.from(previewContainer.children).find(child => 
+                    child.classList.contains('preview-item') && 
+                    (child.querySelector(`#${canvas.id}`) || child.querySelector(`#${canvas.id}Img`))
+                );
+
+                if (!existingPreviewItem) {
+                    // 如果找不到预览项，创建一个新的
+                    const containerDiv = document.createElement('div');
+                    containerDiv.className = 'preview-item';
+                    containerDiv.appendChild(canvas);
+                    
+                    const p = document.createElement('p');
+                    p.textContent = type;
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.textContent = '复制';
+                    copyBtn.onclick = () => copyImage(canvas.id);
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = '下载';
+                    downloadBtn.onclick = () => downloadImage(canvas.id, canvas.id.toLowerCase());
+                    
+                    containerDiv.appendChild(p);
+                    containerDiv.appendChild(copyBtn);
+                    containerDiv.appendChild(downloadBtn);
+                    
+                    previewContainer.appendChild(containerDiv);
+                } else {
+                    // 如果找到预览项，将画布添加到其中
+                    const imgElement = existingPreviewItem.querySelector(`#${canvas.id}Img`);
+                    if (imgElement) {
+                        existingPreviewItem.replaceChild(canvas, imgElement);
+                    } else {
+                        const existingCanvas = existingPreviewItem.querySelector(`#${canvas.id}`);
+                        if (existingCanvas) {
+                            existingPreviewItem.replaceChild(canvas, existingCanvas);
+                        } else {
+                            existingPreviewItem.insertBefore(canvas, existingPreviewItem.firstChild);
+                        }
+                    }
+                }
+            }
+
             if (isGif) {
-                const imgId = canvas.id + 'Img';
-                let imgElement = document.getElementById(imgId);
-                
-                if (!imgElement) {
-                    // 如果img元素不存在，创建一个新的
-                    imgElement = document.createElement('img');
-                    imgElement.id = imgId;
+                // GIF处理代码...
+                const gif = new GIF({
+                    workers: 2,
+                    quality: 10,
+                    width: canvas.width,
+                    height: canvas.height
+                });
+
+                // 处理每一帧...
+                gifFrames.forEach(frame => {
+                    // 创建临时画布
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = originalCanvas.width;
+                    tempCanvas.height = originalCanvas.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 绘制当前帧
+                    tempCtx.putImageData(frame.imageData, 0, 0);
+                    
+                    // 应用对称效果
+                    applySymmetry(tempCtx, type);
+                    
+                    // 添加到GIF
+                    gif.addFrame(tempCanvas, {
+                        delay: frame.delay,
+                        copy: true
+                    });
+                });
+
+                gif.on('finished', function(blob) {
+                    const imgElement = document.createElement('img');
+                    imgElement.id = canvas.id + 'Img';
                     imgElement.style.maxWidth = '300px';
                     imgElement.style.maxHeight = '300px';
                     imgElement.style.border = '1px solid #ddd';
                     imgElement.style.cursor = 'pointer';
+                    imgElement.src = URL.createObjectURL(blob);
                     
-                    // 替换canvas为img
-                    if (canvas.parentNode) {
-                        canvas.parentNode.replaceChild(imgElement, canvas);
-                    } else {
-                        console.error('画布元素没有父节点:', type);
-                        return;
-                    }
-                }
+                    canvas.parentNode.replaceChild(imgElement, canvas);
+                });
 
-                try {
-                    // GIF处理代码...
-                    const gif = new GIF({
-                        workers: 2,
-                        quality: 10,
-                        width: canvas.width,
-                        height: canvas.height
-                    });
-
-                    // 处理每一帧...
-                    gifFrames.forEach(frame => {
-                        // ... GIF帧处理代码 ...
-                    });
-
-                    gif.on('finished', function(blob) {
-                        imgElement.src = URL.createObjectURL(blob);
-                    });
-
-                    gif.render();
-                } catch (error) {
-                    console.error('Error in GIF processing:', error);
-                }
+                gif.render();
             } else {
                 // 静态图像处理
-                if (!canvas || !canvas.parentNode) {
-                    console.error('画布元素没有父节点:', type);
-                    return;
-                }
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 applySymmetry(ctx, type);
