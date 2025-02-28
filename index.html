@@ -159,17 +159,12 @@
         const rotationValue = document.getElementById('rotationValue');
 
         rotationSlider.addEventListener('input', (e) => {
-            // 更新角度值并实时预览原图旋转
             currentRotation = parseInt(e.target.value);
             rotationValue.textContent = currentRotation;
-            updateOriginalPreview(); // 只更新原图预览
-        });
-
-        rotationSlider.addEventListener('change', (e) => {
-            // 在用户完成角度选择后更新所有预览
-            currentRotation = parseInt(e.target.value);
             updatePreviews();
         });
+
+        rotationSlider.removeEventListener('change', () => {});
 
         // 文件上传相关事件
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -208,12 +203,6 @@
 
         // 修改 updatePreviews 函数
         function updatePreviews() {
-            // 清除可能存在的多余预览窗口
-            const previewContainer = document.getElementById('previewContainer');
-            while (previewContainer.children.length > 5) {  // 只保留原始的5个预览
-                previewContainer.removeChild(previewContainer.lastChild);
-            }
-
             // 确保所有画布都已恢复
             restoreCanvases();
             
@@ -272,16 +261,26 @@
             // 绘制中心点
             drawCenterPoint(ctxOriginal);
 
-            // 生成对称图像（使用getElementById获取画布元素）
-            const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 
-                              'verticalLeftCanvas', 'verticalRightCanvas'];
-                              
-            canvasIds.forEach(id => {
-                const canvas = document.getElementById(id);
-                if (canvas) {
-                    generateSymmetry(canvas, id.replace('Canvas', '').toLowerCase());
+            // 生成对称图像
+            const canvases = {
+                'horizontalUp': horizontalUpCanvas,
+                'horizontalDown': horizontalDownCanvas,
+                'verticalLeft': verticalLeftCanvas,
+                'verticalRight': verticalRightCanvas
+            };
+
+            Object.entries(canvases).forEach(([type, canvas]) => {
+                if (canvas && canvas.parentNode) {
+                    generateSymmetry(canvas, type);
                 } else {
-                    console.error(`找不到画布元素: ${id}`);
+                    console.error(`找不到画布元素或其父节点: ${type}`);
+                    // 尝试恢复画布
+                    restoreCanvases();
+                    // 重新获取画布并再次尝试
+                    const restoredCanvas = document.getElementById(type + 'Canvas');
+                    if (restoredCanvas && restoredCanvas.parentNode) {
+                        generateSymmetry(restoredCanvas, type);
+                    }
                 }
             });
         }
@@ -958,10 +957,14 @@
                 // 启用旋转控制
                 rotationSlider.disabled = false;
                 rotationValue.style.color = "#666";
+                rotationValue.textContent = "0";
                 
                 // 处理静态图片
                 originalImage.src = URL.createObjectURL(file);
                 originalImage.onload = () => {
+                    // 确保所有画布都已恢复
+                    restoreCanvases();
+                    
                     // 设置初始中心点
                     centerX = originalImage.width / 2;
                     centerY = originalImage.height / 2;
@@ -969,7 +972,6 @@
                     // 重置旋转角度
                     currentRotation = 0;
                     rotationSlider.value = "0";
-                    rotationValue.textContent = "0";
                     
                     // 更新预览
                     updatePreviews();
