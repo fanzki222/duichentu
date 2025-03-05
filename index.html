@@ -698,11 +698,14 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数，简化帧处理部分
+        // 修改 processGIF 函数
         function processGIF(arrayBuffer) {
             try {
                 // 确保所有画布都已恢复
-                restoreCanvases();
+                if (!restoreCanvases()) {
+                    console.error('无法恢复画布元素，中止操作');
+                    return;
+                }
                 
                 // 检查是否有有效的GIF数据
                 let gifData;
