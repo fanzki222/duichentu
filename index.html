@@ -231,11 +231,14 @@
             // 只在原图上绘制中心点和对称轴
             drawCenterPoint(ctxOriginal);
 
-            // 生成对称图像（不再调用 drawCenterPoint）
-            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
-            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
-            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
-            generateSymmetry(verticalRightCanvas, 'verticalRight');
+            // 生成对称图像
+            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+            symmetryTypes.forEach(type => {
+                const canvas = document.getElementById(type + 'Canvas');
+                if (canvas) {
+                    generateSymmetry(canvas, type);
+                }
+            });
         }
 
         // 修改 updateOriginalPreview 函数
@@ -280,36 +283,39 @@
                 return;
             }
 
-            const rect = originalCanvas.getBoundingClientRect();
-            const scaleX = originalCanvas.width / rect.width;
-            const scaleY = originalCanvas.height / rect.height;
+                const rect = originalCanvas.getBoundingClientRect();
+                const scaleX = originalCanvas.width / rect.width;
+                const scaleY = originalCanvas.height / rect.height;
             
-            centerX = (e.clientX - rect.left) * scaleX;
-            centerY = (e.clientY - rect.top) * scaleY;
-            
+                centerX = (e.clientX - rect.left) * scaleX;
+                centerY = (e.clientY - rect.top) * scaleY;
+                
             // 更新预览
-            const ctxOriginal = originalCanvas.getContext('2d');
+                            const ctxOriginal = originalCanvas.getContext('2d');
             ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
             
             if (isGif && gifFrames.length > 0) {
                 ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
                 if (currentRotation !== 0) {
                     drawRotatedImage(ctxOriginal, originalCanvas);
-                }
-            } else {
+                            }
+                        } else {
                 ctxOriginal.drawImage(originalImage, 0, 0);
                 if (currentRotation !== 0) {
                     drawRotatedImage(ctxOriginal, originalCanvas);
-                }
-            }
-            
+                        }
+                    }
+
             drawCenterPoint(ctxOriginal);
-            
+
             // 重新生成对称图像
-            generateSymmetry(horizontalUpCanvas, 'horizontalUp');
-            generateSymmetry(horizontalDownCanvas, 'horizontalDown');
-            generateSymmetry(verticalLeftCanvas, 'verticalLeft');
-            generateSymmetry(verticalRightCanvas, 'verticalRight');
+            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+            symmetryTypes.forEach(type => {
+                const canvas = document.getElementById(type + 'Canvas');
+                if (canvas) {
+                    generateSymmetry(canvas, type);
+                }
+            });
         });
 
         // 修改 drawCenterPoint 函数
@@ -434,9 +440,25 @@
 
         // 修改 generateSymmetry 函数
         function generateSymmetry(canvas, type) {
-            if (!canvas || !canvas.parentNode) {
+            // 确保我们有正确的画布元素
+            const canvasId = type + 'Canvas';  // 添加 Canvas 后缀
+            const targetCanvas = document.getElementById(canvasId);
+            
+            if (!targetCanvas || !targetCanvas.parentNode) {
                 console.error('画布元素没有父节点:', type);
-                return;
+                // 尝试恢复画布
+                if (restoreCanvases()) {
+                    // 重新获取画布元素
+                    const restoredCanvas = document.getElementById(canvasId);
+                    if (restoredCanvas && restoredCanvas.parentNode) {
+                        // 使用恢复的画布继续处理
+                        canvas = restoredCanvas;
+                    } else {
+                        return;  // 如果还是失败就退出
+                    }
+                } else {
+                    return;  // 如果恢复失败就退出
+                }
             }
 
             if (isGif) {
@@ -469,7 +491,7 @@
                             newWidth = (originalWidth - centerX) * 2;
                             break;
                     }
-
+                    
                     // 设置画布尺寸
                     canvas.width = newWidth;
                     canvas.height = newHeight;
@@ -636,24 +658,24 @@
 
             // 根据对称类型计算新的画布尺寸
             let newWidth, newHeight;
-            switch (type) {
-                case 'horizontalUp':
+                switch (type) {
+                    case 'horizontalUp':
                     newWidth = sourceWidth;
-                    newHeight = centerY * 2;
-                    break;
-                case 'horizontalDown':
+                        newHeight = centerY * 2;
+                        break;
+                    case 'horizontalDown':
                     newWidth = sourceWidth;
                     newHeight = (sourceHeight - centerY) * 2;
-                    break;
-                case 'verticalLeft':
-                    newWidth = centerX * 2;
+                        break;
+                    case 'verticalLeft':
+                        newWidth = centerX * 2;
                     newHeight = sourceHeight;
-                    break;
-                case 'verticalRight':
+                        break;
+                    case 'verticalRight':
                     newWidth = (sourceWidth - centerX) * 2;
                     newHeight = sourceHeight;
-                    break;
-            }
+                        break;
+                }
 
             // 调整目标画布尺寸
             ctx.canvas.width = newWidth;
@@ -722,7 +744,7 @@
                     console.error('无法恢复画布元素');
                     return;
                 }
-
+                
                 // 清空之前的帧数据
                 gifFrames = [];
                 
@@ -748,14 +770,14 @@
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
                     gifFrames.push({ 
                         imageData, 
-                        delay: frameInfo.delay * 10
+                        delay: frameInfo.delay * 10 
                     });
                 }
                 
                 // 绘制第一帧
-                const ctxOriginal = originalCanvas.getContext('2d');
-                ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                drawCenterPoint(ctxOriginal);
+                    const ctxOriginal = originalCanvas.getContext('2d');
+                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                    drawCenterPoint(ctxOriginal);
                 
                 // 生成对称预览
                 generateSymmetry(horizontalUpCanvas, 'horizontalUp');
