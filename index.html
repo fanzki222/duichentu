@@ -892,7 +892,7 @@
             }
         }
 
-        // 添加 restoreCanvases 函数
+        // 修改 restoreCanvases 函数
         function restoreCanvases() {
             try {
                 const previewContainer = document.getElementById('previewContainer');
@@ -908,12 +908,27 @@
                     { id: 'verticalRightCanvas', text: '垂直右对称' }
                 ];
 
+                // 先移除所有已存在但无效的预览项
+                const existingPreviews = previewContainer.getElementsByClassName('preview-item');
+                Array.from(existingPreviews).forEach(preview => {
+                    const canvas = preview.querySelector('canvas');
+                    if (!canvas || !canvasConfigs.some(config => config.id === canvas.id)) {
+                        previewContainer.removeChild(preview);
+                    }
+                });
+
                 for (const config of canvasConfigs) {
                     let canvas = document.getElementById(config.id);
                     let containerDiv = canvas ? canvas.parentNode : null;
 
+                    // 只有当画布不存在或其容器不是 preview-item 时才创建新的
                     if (!containerDiv || !containerDiv.classList.contains('preview-item')) {
-                        // 如果画布或其容器不存在，创建新的
+                        // 先检查是否已经存在相同ID的预览项
+                        const existingPreview = previewContainer.querySelector(`.preview-item canvas#${config.id}`);
+                        if (existingPreview) {
+                            continue; // 如果已存在，跳过创建
+                        }
+
                         containerDiv = document.createElement('div');
                         containerDiv.className = 'preview-item';
                         
