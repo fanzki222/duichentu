@@ -726,8 +726,7 @@
                 // 清空之前的帧数据
                 gifFrames = [];
                 
-                const reader = new GIF.Reader(arrayBuffer);
-                reader.parseHeader();
+                const reader = new GifReader(new Uint8Array(arrayBuffer));
                 
                 const width = reader.width;
                 const height = reader.height;
