@@ -320,77 +320,71 @@
 
         // 修改 drawCenterPoint 函数
         function drawCenterPoint(ctx) {
+            // 确保中心点坐标是有效的数字
+            if (!isFinite(centerX) || !isFinite(centerY) || 
+                centerX < 0 || centerY < 0 || 
+                centerX > ctx.canvas.width || centerY > ctx.canvas.height) {
+                console.error('无效的中心点坐标:', centerX, centerY);
+                // 重置为画布中心
+                centerX = ctx.canvas.width / 2;
+                centerY = ctx.canvas.height / 2;
+            }
+
             const rect = ctx.canvas.getBoundingClientRect();
-            // 计算缩放比例，用于调整显示大小
             const scaleX = ctx.canvas.width / rect.width;
             const scaleY = ctx.canvas.height / rect.height;
             const scale = Math.max(scaleX, scaleY);
             
             ctx.save();
             
-            // 设置虚线样式，根据缩放比例调整
-            const dashLength = Math.max(5, 5 * scale / 4);  // 最小5px，随缩放增大
+            // 设置虚线样式
+            const dashLength = Math.max(5, 5 * scale / 4);
             ctx.setLineDash([dashLength]);
-            ctx.lineWidth = Math.max(2, scale / 8);  // 最小2px，随缩放增大
+            ctx.lineWidth = Math.max(2, scale / 8);
             
-            // 创建渐变色轴线，提高可见性
-            const verticalGradient = ctx.createLinearGradient(centerX, 0, centerX, ctx.canvas.height);
-            const horizontalGradient = ctx.createLinearGradient(0, centerY, ctx.canvas.width, centerY);
-            
-            // 设置渐变色
-            [verticalGradient, horizontalGradient].forEach(gradient => {
-                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');    // 红色
-                gradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)'); // 黄色
-                gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');    // 红色
-            });
-            
-            // 添加白色描边以提高对比度
             // 绘制垂直对称轴
-            // 先绘制白色描边
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = Math.max(4, scale / 6);  // 更宽的白色描边
             ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = Math.max(4, scale / 6);
             ctx.moveTo(centerX, 0);
             ctx.lineTo(centerX, ctx.canvas.height);
             ctx.stroke();
-            
-            // 再绘制彩色轴线
-            ctx.strokeStyle = verticalGradient;
-            ctx.lineWidth = Math.max(2, scale / 8);
+
             ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.lineWidth = Math.max(2, scale / 8);
             ctx.moveTo(centerX, 0);
             ctx.lineTo(centerX, ctx.canvas.height);
             ctx.stroke();
             
             // 绘制水平对称轴
-            // 先绘制白色描边
+            ctx.beginPath();
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.lineWidth = Math.max(4, scale / 6);
-            ctx.beginPath();
             ctx.moveTo(0, centerY);
             ctx.lineTo(ctx.canvas.width, centerY);
             ctx.stroke();
-            
-            // 再绘制彩色轴线
-            ctx.strokeStyle = horizontalGradient;
-            ctx.lineWidth = Math.max(2, scale / 8);
+
             ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.lineWidth = Math.max(2, scale / 8);
             ctx.moveTo(0, centerY);
             ctx.lineTo(ctx.canvas.width, centerY);
             ctx.stroke();
             
             // 绘制中心点
-            // 先绘制白色外圈
             ctx.setLineDash([]);  // 取消虚线
+            
+            // 绘制白色外圈
             ctx.beginPath();
-            const outerRadius = Math.max(6, scale / 4);  // 外圈半径
+            const outerRadius = Math.max(6, scale / 4);
             ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
             ctx.fillStyle = 'white';
             ctx.fill();
             
             // 绘制内部红色圆点
             ctx.beginPath();
-            const innerRadius = Math.max(4, scale / 6);  // 内圈半径
+            const innerRadius = Math.max(4, scale / 6);
             ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
             ctx.fill();
