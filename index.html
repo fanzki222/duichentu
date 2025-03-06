@@ -159,16 +159,30 @@
         const rotationValue = document.getElementById('rotationValue');
 
         rotationSlider.addEventListener('input', (e) => {
-            // 更新角度值并实时预览原图旋转
             currentRotation = parseInt(e.target.value);
             rotationValue.textContent = currentRotation;
-            updatePreviews(); // 只更新原图预览
+            
+            // 只在静态图片模式下实时更新
+            if (!isGif) {
+                updateOriginalPreview();
+            }
         });
 
         rotationSlider.addEventListener('change', (e) => {
-            // 在用户完成角度选择后更新所有预览
             currentRotation = parseInt(e.target.value);
-            updatePreviews();
+            if (isGif) {
+                // GIF模式下只在松开滑块后更新
+                updateOriginalPreview();
+                
+                // 更新所有对称预览
+                const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+                symmetryTypes.forEach(type => {
+                    const canvas = document.getElementById(type + 'Canvas');
+                    if (canvas) {
+                        generateSymmetry(canvas, type);
+                    }
+                });
+            }
         });
 
         // 文件上传相关事件
@@ -206,349 +220,507 @@
             }
         });
 
-        // 重写点击事件处理函数
-        originalCanvas.addEventListener('click', (e) => {
-            // 计算点击坐标
-            const rect = originalCanvas.getBoundingClientRect();
-            const scaleX = originalCanvas.width / rect.width;
-            const scaleY = originalCanvas.height / rect.height;
-            
-            // 获取相对于画布的点击位置
-            const clickX = (e.clientX - rect.left) * scaleX;
-            const clickY = (e.clientY - rect.top) * scaleY;
-            
-            // 如果有旋转，需要转换坐标
-            if (currentRotation !== 0 && !isGif) {
-                // 计算画布中心
-                const centerCanvasX = originalCanvas.width / 2;
-                const centerCanvasY = originalCanvas.height / 2;
-                
-                // 计算点击位置相对于中心的偏移
-                const dx = clickX - centerCanvasX;
-                const dy = clickY - centerCanvasY;
-                
-                // 计算旋转角度（与当前旋转相反）
-                const angle = -currentRotation * Math.PI / 180;
-                
-                // 应用旋转变换
-                const rotatedDx = dx * Math.cos(angle) - dy * Math.sin(angle);
-                const rotatedDy = dx * Math.sin(angle) + dy * Math.cos(angle);
-                
-                // 计算旋转后的坐标
-                centerX = centerCanvasX + rotatedDx;
-                centerY = centerCanvasY + rotatedDy;
-            } else {
-                // 无旋转或GIF时直接使用点击坐标
-                centerX = clickX;
-                centerY = clickY;
-            }
-            
-            // 限制中心点在画布范围内
-            centerX = Math.max(0, Math.min(centerX, originalCanvas.width));
-            centerY = Math.max(0, Math.min(centerY, originalCanvas.height));
-            
-            console.log("设置中心点:", centerX, centerY);
-            
-            // 更新预览
-            updatePreviews();
-        });
-
-        // 重写 updatePreviews 函数
+        // 修改 updatePreviews 函数
         function updatePreviews() {
-            // 如果是GIF但没有帧数据，直接返回
-            if (isGif && (!gifFrames || gifFrames.length === 0)) {
-                console.warn("没有GIF帧数据");
-                return;
-            }
-            
-            // 1. 更新原图预览
             const ctxOriginal = originalCanvas.getContext('2d');
             
-            if (!isGif) {
-                // 静态图片 - 确保设置正确的画布尺寸
-                if (currentRotation !== 0) {
-                    // 计算旋转后需要的画布大小
-                    const angle = currentRotation * Math.PI / 180;
-                    const cos = Math.abs(Math.cos(angle));
-                    const sin = Math.abs(Math.sin(angle));
-                    const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
-                    const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
-                    
-                    // 调整画布大小以容纳旋转后的图像
-                    originalCanvas.width = newWidth;
-                    originalCanvas.height = newHeight;
-                    
-                    // 清除画布
-                    ctxOriginal.clearRect(0, 0, newWidth, newHeight);
-                    
-                    // 绘制旋转后的图像
-                    ctxOriginal.save();
-                    ctxOriginal.translate(newWidth/2, newHeight/2);
-                    ctxOriginal.rotate(angle);
-                    ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-                    ctxOriginal.restore();
-                } else {
-                    // 无旋转 - 使用原始图像尺寸
-                    originalCanvas.width = originalImage.width;
-                    originalCanvas.height = originalImage.height;
-                    
-                    // 清除画布
-                    ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
-                    
-                    // 绘制图像
-                    ctxOriginal.drawImage(originalImage, 0, 0);
-                }
-            } else {
-                // GIF - 已经在 processGIF 中设置了尺寸和内容，只需重绘
-                ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
-                if (gifFrames && gifFrames.length > 0) {
-                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                }
-            }
+            // 计算旋转后需要的画布大小
+            const angle = currentRotation * Math.PI / 180;
+            const cos = Math.abs(Math.cos(angle));
+            const sin = Math.abs(Math.sin(angle));
+            const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
+            const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
             
-            // 确保中心点在画布范围内
-            centerX = Math.min(Math.max(0, centerX), originalCanvas.width);
-            centerY = Math.min(Math.max(0, centerY), originalCanvas.height);
+            // 调整画布大小
+            originalCanvas.width = newWidth;
+            originalCanvas.height = newHeight;
             
-            // 绘制中心点
+            // 绘制原始图像
+            ctxOriginal.save();
+            ctxOriginal.translate(newWidth/2, newHeight/2);
+            ctxOriginal.rotate(angle);
+            ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+            ctxOriginal.restore();
+            
+            // 只在原图上绘制中心点和对称轴
             drawCenterPoint(ctxOriginal);
-            
-            // 2. 更新对称图像预览
-            processImageSymmetry(document.getElementById('horizontalUpCanvas'), 'horizontalUp');
-            processImageSymmetry(document.getElementById('horizontalDownCanvas'), 'horizontalDown');
-            processImageSymmetry(document.getElementById('verticalLeftCanvas'), 'verticalLeft');
-            processImageSymmetry(document.getElementById('verticalRightCanvas'), 'verticalRight');
+
+            // 生成对称图像
+            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+            symmetryTypes.forEach(type => {
+                const canvas = document.getElementById(type + 'Canvas');
+                if (canvas) {
+                    generateSymmetry(canvas, type);
+                }
+            });
         }
 
-        // 统一处理图像对称 - 同时处理GIF和静态图像
-        function processImageSymmetry(canvas, type) {
-            if (!canvas) {
-                console.error("找不到画布:", type);
+        // 修改 updateOriginalPreview 函数
+        function updateOriginalPreview() {
+            const ctxOriginal = originalCanvas.getContext('2d');
+            
+            // 保存当前中心点相对位置（转换为相对坐标）
+            const relativeX = centerX / originalCanvas.width;
+            const relativeY = centerY / originalCanvas.height;
+            
+            // 计算旋转后需要的画布大小
+            const angle = currentRotation * Math.PI / 180;
+            const cos = Math.abs(Math.cos(angle));
+            const sin = Math.abs(Math.sin(angle));
+            const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
+            const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
+            
+            // 调整画布大小
+            originalCanvas.width = newWidth;
+            originalCanvas.height = newHeight;
+            
+            // 绘制旋转后的图像
+            ctxOriginal.save();
+            ctxOriginal.translate(newWidth/2, newHeight/2);
+            ctxOriginal.rotate(angle);
+            ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+            ctxOriginal.restore();
+            
+            // 更新中心点位置（保持相对位置）
+            centerX = newWidth * relativeX;
+            centerY = newHeight * relativeY;
+            
+            // 重新绘制中心点
+            drawCenterPoint(ctxOriginal);
+        }
+
+        // 修改原始画布的点击事件处理
+        originalCanvas.addEventListener('click', (e) => {
+            // 确保画布元素存在
+            if (!restoreCanvases()) {
+                console.error('无法恢复画布元素');
                 return;
             }
+
+                const rect = originalCanvas.getBoundingClientRect();
+                const scaleX = originalCanvas.width / rect.width;
+                const scaleY = originalCanvas.height / rect.height;
             
-            const ctx = canvas.getContext('2d');
-            
-            // 创建临时画布
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = originalCanvas.width;
-            tempCanvas.height = originalCanvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            // 复制原图（不包含中心点和对称轴）
-            if (isGif && gifFrames && gifFrames.length > 0) {
-                tempCtx.putImageData(gifFrames[0].imageData, 0, 0);
-            } else {
-                // 重绘原图（不包含中心点和轴线）
-                if (currentRotation !== 0) {
-                    const angle = currentRotation * Math.PI / 180;
-                    tempCtx.save();
-                    tempCtx.translate(tempCanvas.width/2, tempCanvas.height/2);
-                    tempCtx.rotate(angle);
-                    tempCtx.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-                    tempCtx.restore();
-                } else {
-                    tempCtx.drawImage(originalImage, 0, 0);
-                }
-            }
-            
-            // 根据对称类型调整画布尺寸
-            let newWidth, newHeight;
-            switch (type) {
-                case 'horizontalUp':
-                    newWidth = tempCanvas.width;
-                    newHeight = centerY * 2;
-                    break;
-                case 'horizontalDown':
-                    newWidth = tempCanvas.width;
-                    newHeight = (tempCanvas.height - centerY) * 2;
-                    break;
-                case 'verticalLeft':
-                    newWidth = centerX * 2;
-                    newHeight = tempCanvas.height;
-                    break;
-                case 'verticalRight':
-                    newWidth = (tempCanvas.width - centerX) * 2;
-                    newHeight = tempCanvas.height;
-                    break;
-            }
-            
-            // 调整目标画布尺寸
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            ctx.clearRect(0, 0, newWidth, newHeight);
-            
-            // 应用对称
-            switch (type) {
-                case 'horizontalUp':
-                    // 上半部分
-                    ctx.drawImage(tempCanvas, 
-                        0, 0, tempCanvas.width, centerY,
-                        0, 0, tempCanvas.width, centerY);
-                    // 镜像
-                    ctx.save();
-                    ctx.scale(1, -1);
-                    ctx.drawImage(tempCanvas,
-                        0, 0, tempCanvas.width, centerY,
-                        0, -newHeight, tempCanvas.width, centerY);
-                    ctx.restore();
-                    break;
+                centerX = (e.clientX - rect.left) * scaleX;
+                centerY = (e.clientY - rect.top) * scaleY;
                 
-                case 'horizontalDown':
-                    // 下半部分
-                    ctx.drawImage(tempCanvas,
-                        0, centerY, tempCanvas.width, tempCanvas.height - centerY,
-                        0, 0, tempCanvas.width, tempCanvas.height - centerY);
-                    // 镜像
-                    ctx.save();
-                    ctx.scale(1, -1);
-                    ctx.drawImage(tempCanvas,
-                        0, centerY, tempCanvas.width, tempCanvas.height - centerY,
-                        0, -(tempCanvas.height - centerY) * 2, tempCanvas.width, tempCanvas.height - centerY);
-                    ctx.restore();
-                    break;
-                    
-                case 'verticalLeft':
-                    // 左半部分
-                    ctx.drawImage(tempCanvas,
-                        0, 0, centerX, tempCanvas.height,
-                        0, 0, centerX, tempCanvas.height);
-                    // 镜像
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(tempCanvas,
-                        0, 0, centerX, tempCanvas.height,
-                        -centerX * 2, 0, centerX, tempCanvas.height);
-                    ctx.restore();
-                    break;
-                    
-                case 'verticalRight':
-                    // 右半部分
-                    ctx.drawImage(tempCanvas,
-                        centerX, 0, tempCanvas.width - centerX, tempCanvas.height,
-                        0, 0, tempCanvas.width - centerX, tempCanvas.height);
-                    // 镜像
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(tempCanvas,
-                        centerX, 0, tempCanvas.width - centerX, tempCanvas.height,
-                        -(tempCanvas.width - centerX) * 2, 0, tempCanvas.width - centerX, tempCanvas.height);
-                    ctx.restore();
-                    break;
-            }
-        }
+            // 更新预览
+                            const ctxOriginal = originalCanvas.getContext('2d');
+            ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+            
+            if (isGif && gifFrames.length > 0) {
+                ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                if (currentRotation !== 0) {
+                    drawRotatedImage(ctxOriginal, originalCanvas);
+                            }
+                        } else {
+                ctxOriginal.drawImage(originalImage, 0, 0);
+                if (currentRotation !== 0) {
+                    drawRotatedImage(ctxOriginal, originalCanvas);
+                        }
+                    }
+
+            drawCenterPoint(ctxOriginal);
+
+            // 重新生成对称图像
+            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+            symmetryTypes.forEach(type => {
+                const canvas = document.getElementById(type + 'Canvas');
+                if (canvas) {
+                    generateSymmetry(canvas, type);
+                }
+            });
+        });
 
         // 修改 drawCenterPoint 函数
         function drawCenterPoint(ctx) {
-            // 确保centerX和centerY是有效的数字
+            // 确保中心点坐标是有效的数字
             if (isNaN(centerX) || isNaN(centerY) || 
                 !isFinite(centerX) || !isFinite(centerY) ||
-                centerX < 0 || centerY < 0 ||
+                centerX < 0 || centerY < 0 || 
                 centerX > ctx.canvas.width || centerY > ctx.canvas.height) {
-                // 如果中心点无效，使用画布中心
+                
+                // 重置到中心点
                 centerX = ctx.canvas.width / 2;
                 centerY = ctx.canvas.height / 2;
             }
             
             const rect = ctx.canvas.getBoundingClientRect();
-            // 计算缩放比例，用于调整显示大小
             const scaleX = ctx.canvas.width / Math.max(1, rect.width);
             const scaleY = ctx.canvas.height / Math.max(1, rect.height);
             const scale = Math.max(1, Math.max(scaleX, scaleY));
             
             ctx.save();
             
-            // 设置虚线样式，根据缩放比例调整
+            // 设置虚线样式
             const dashLength = Math.max(5, 5 * scale / 4);
             ctx.setLineDash([dashLength]);
             ctx.lineWidth = Math.max(2, scale / 8);
             
-            // 安全地创建渐变
-            try {
-                // 垂直渐变
-                const verticalGradient = ctx.createLinearGradient(
-                    centerX, 0, 
-                    centerX, Math.max(1, ctx.canvas.height)
-                );
-                verticalGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
-                verticalGradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)');
-                verticalGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
-                
-                // 水平渐变
-                const horizontalGradient = ctx.createLinearGradient(
-                    0, centerY, 
-                    Math.max(1, ctx.canvas.width), centerY
-                );
-                horizontalGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
-                horizontalGradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)');
-                horizontalGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
-                
-                // 绘制垂直对称轴
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.lineWidth = Math.max(4, scale / 6);
-                ctx.beginPath();
-                ctx.moveTo(centerX, 0);
-                ctx.lineTo(centerX, ctx.canvas.height);
-                ctx.stroke();
-                
-                ctx.strokeStyle = verticalGradient;
-                ctx.lineWidth = Math.max(2, scale / 8);
-                ctx.beginPath();
-                ctx.moveTo(centerX, 0);
-                ctx.lineTo(centerX, ctx.canvas.height);
-                ctx.stroke();
-                
-                // 绘制水平对称轴
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.lineWidth = Math.max(4, scale / 6);
-                ctx.beginPath();
-                ctx.moveTo(0, centerY);
-                ctx.lineTo(ctx.canvas.width, centerY);
-                ctx.stroke();
-                
-                ctx.strokeStyle = horizontalGradient;
-                ctx.lineWidth = Math.max(2, scale / 8);
-                ctx.beginPath();
-                ctx.moveTo(0, centerY);
-                ctx.lineTo(ctx.canvas.width, centerY);
-                ctx.stroke();
-            } catch (e) {
-                // 如果渐变创建失败，使用纯色
-                console.warn('创建渐变失败，使用纯色:', e);
-                
-                // 绘制垂直对称轴
-                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                ctx.lineWidth = Math.max(2, scale / 8);
-                ctx.beginPath();
-                ctx.moveTo(centerX, 0);
-                ctx.lineTo(centerX, ctx.canvas.height);
-                ctx.stroke();
-                
-                // 绘制水平对称轴
-                ctx.beginPath();
-                ctx.moveTo(0, centerY);
-                ctx.lineTo(ctx.canvas.width, centerY);
-                ctx.stroke();
-            }
+            // 使用简单的红色而不是渐变
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
             
-            // 绘制中心点
+            // 绘制垂直对称轴
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, ctx.canvas.height);
+            ctx.stroke();
+            
+            // 绘制水平对称轴
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(ctx.canvas.width, centerY);
+            ctx.stroke();
+            
+            // 绘制中心点（小圆点）
             ctx.setLineDash([]);
             ctx.beginPath();
-            const outerRadius = Math.max(6, scale / 4);
-            ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'white';
-            ctx.fill();
-            
-            ctx.beginPath();
-            const innerRadius = Math.max(4, scale / 6);
-            ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
+            ctx.arc(centerX, centerY, Math.max(4, scale / 6), 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
             ctx.fill();
             
             ctx.restore();
         }
 
-        // 修复 processGIF 函数 - 不再调用 generateSymmetry
+        // 修改 drawRotatedImage 函数
+        function drawRotatedImage(ctx, source = null) {
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            
+            // 计算旋转后需要的画布大小
+            const angle = currentRotation * Math.PI / 180;
+            const cos = Math.abs(Math.cos(angle));
+            const sin = Math.abs(Math.sin(angle));
+            const newWidth = Math.ceil(width * cos + height * sin);
+            const newHeight = Math.ceil(width * sin + height * cos);
+            
+            // 创建临时画布，使用更大的尺寸以确保旋转后的图像完整显示
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = newWidth;
+            tempCanvas.height = newHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // 清除并调整原画布大小
+            ctx.canvas.width = newWidth;
+            ctx.canvas.height = newHeight;
+            ctx.clearRect(0, 0, newWidth, newHeight);
+            
+            // 在临时画布上进行旋转
+            tempCtx.save();
+            tempCtx.translate(newWidth/2, newHeight/2);
+            tempCtx.rotate(angle);
+            tempCtx.drawImage(source || ctx.canvas, -width/2, -height/2);
+            tempCtx.restore();
+            
+            // 将结果绘制到原画布
+            ctx.drawImage(tempCanvas, 0, 0);
+            
+            return {
+                width: newWidth,
+                height: newHeight,
+                canvas: tempCanvas
+            };
+        }
+
+        // 修改 generateSymmetry 函数
+        function generateSymmetry(canvas, type) {
+            // 确保我们有正确的画布元素
+            const canvasId = type + 'Canvas';  // 添加 Canvas 后缀
+            const targetCanvas = document.getElementById(canvasId);
+            
+            if (!targetCanvas || !targetCanvas.parentNode) {
+                console.error('画布元素没有父节点:', type);
+                // 尝试恢复画布
+                if (restoreCanvases()) {
+                    // 重新获取画布元素
+                    const restoredCanvas = document.getElementById(canvasId);
+                    if (restoredCanvas && restoredCanvas.parentNode) {
+                        // 使用恢复的画布继续处理
+                        canvas = restoredCanvas;
+                    } else {
+                        return;  // 如果还是失败就退出
+                    }
+                } else {
+                    return;  // 如果恢复失败就退出
+                }
+            }
+
+            if (isGif) {
+                try {
+                    const gif = new GIF({
+                        workers: 2,
+                        quality: 10,
+                        workerScript: './gif.worker.js',
+                        repeat: 0
+                    });
+                    
+                    // 计算新的画布尺寸
+                    const originalWidth = originalCanvas.width;
+                    const originalHeight = originalCanvas.height;
+                    let newWidth = originalWidth;
+                    let newHeight = originalHeight;
+
+                    // 根据对称类型调整画布尺寸
+                    switch (type) {
+                        case 'horizontalUp':
+                            newHeight = centerY * 2;
+                            break;
+                        case 'horizontalDown':
+                            newHeight = (originalHeight - centerY) * 2;
+                            break;
+                        case 'verticalLeft':
+                            newWidth = centerX * 2;
+                            break;
+                        case 'verticalRight':
+                            newWidth = (originalWidth - centerX) * 2;
+                            break;
+                    }
+                    
+                    // 设置画布尺寸
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+
+                    // 创建一个背景画布
+                    const bgCanvas = document.createElement('canvas');
+                    bgCanvas.width = newWidth;
+                    bgCanvas.height = newHeight;
+                    const bgCtx = bgCanvas.getContext('2d');
+                    
+                    // 为每一帧创建对称效果
+                    gifFrames.forEach((frame, frameIndex) => {
+                        try {
+                            const frameCanvas = document.createElement('canvas');
+                            frameCanvas.width = originalWidth;
+                            frameCanvas.height = originalHeight;
+                            const frameCtx = frameCanvas.getContext('2d');
+
+                            // 绘制当前帧
+                            frameCtx.putImageData(frame.imageData, 0, 0);
+
+                            // 创建一个临时画布用于旋转
+                            const rotatedCanvas = document.createElement('canvas');
+                            rotatedCanvas.width = originalWidth;
+                            rotatedCanvas.height = originalHeight;
+                            const rotatedCtx = rotatedCanvas.getContext('2d');
+                            
+                            // 复制帧到旋转画布
+                            rotatedCtx.drawImage(frameCanvas, 0, 0);
+                            
+                            // 应用旋转
+                            if (currentRotation !== 0) {
+                                drawRotatedImage(rotatedCtx, rotatedCanvas);
+                            }
+
+                            // 创建结果画布
+                            const resultCanvas = document.createElement('canvas');
+                            resultCanvas.width = newWidth;
+                            resultCanvas.height = newHeight;
+                            const resultCtx = resultCanvas.getContext('2d');
+
+                            // 先绘制背景（如果需要）
+                            resultCtx.drawImage(bgCanvas, 0, 0);
+
+                            // 使用旋转后的画布进行对称处理
+                            switch (type) {
+                                case 'horizontalUp':
+                                    resultCtx.drawImage(rotatedCanvas, 
+                                        0, 0, originalWidth, centerY,
+                                        0, 0, originalWidth, centerY);
+                                    resultCtx.save();
+                                    resultCtx.translate(0, newHeight);
+                                    resultCtx.scale(1, -1);
+                                    resultCtx.drawImage(rotatedCanvas,
+                                        0, 0, originalWidth, centerY,
+                                        0, 0, originalWidth, centerY);
+                                    resultCtx.restore();
+                                    break;
+                                case 'horizontalDown':
+                                    resultCtx.drawImage(rotatedCanvas, 
+                                        0, centerY, originalWidth, originalHeight - centerY,
+                                        0, newHeight/2, originalWidth, originalHeight - centerY);
+                                    resultCtx.save();
+                                    resultCtx.translate(0, newHeight/2);
+                                    resultCtx.scale(1, -1);
+                                    resultCtx.drawImage(rotatedCanvas,
+                                        0, centerY, originalWidth, originalHeight - centerY,
+                                        0, 0, originalWidth, originalHeight - centerY);
+                                    resultCtx.restore();
+                                    break;
+                                case 'verticalLeft':
+                                    resultCtx.drawImage(rotatedCanvas, 
+                                        0, 0, centerX, originalHeight,
+                                        0, 0, centerX, originalHeight);
+                                    resultCtx.save();
+                                    resultCtx.translate(newWidth, 0);
+                                    resultCtx.scale(-1, 1);
+                                    resultCtx.drawImage(rotatedCanvas,
+                                        0, 0, centerX, originalHeight,
+                                        0, 0, centerX, originalHeight);
+                                    resultCtx.restore();
+                                    break;
+                                case 'verticalRight':
+                                    resultCtx.drawImage(rotatedCanvas, 
+                                        centerX, 0, originalWidth - centerX, originalHeight,
+                                        newWidth/2, 0, originalWidth - centerX, originalHeight);
+                                    resultCtx.save();
+                                    resultCtx.translate(newWidth/2, 0);
+                                    resultCtx.scale(-1, 1);
+                                    resultCtx.drawImage(rotatedCanvas,
+                                        centerX, 0, originalWidth - centerX, originalHeight,
+                                        0, 0, originalWidth - centerX, originalHeight);
+                                    resultCtx.restore();
+                                    break;
+                            }
+
+                            // 添加帧到GIF
+                            gif.addFrame(resultCanvas, {
+                                delay: frame.delay,
+                                copy: true,
+                                dispose: 2
+                            });
+
+                            // 更新背景画布（如果需要）
+                            bgCtx.clearRect(0, 0, newWidth, newHeight);
+                            bgCtx.drawImage(resultCanvas, 0, 0);
+
+                        } catch (frameError) {
+                            console.error('Error processing frame', frameIndex, frameError);
+                        }
+                    });
+                    
+                    // GIF渲染完成后的处理
+                    gif.on('finished', (blob) => {
+                        try {
+                            const img = document.createElement('img');
+                            img.src = URL.createObjectURL(blob);
+                            img.id = canvas.id + 'Img';
+                            img.style.maxWidth = '300px';
+                            img.style.maxHeight = '300px';
+                            img.style.border = '1px solid #ddd';
+                            img.style.cursor = 'pointer';
+                            
+                            const currentParent = canvas.parentNode;
+                            if (currentParent) {
+                                currentParent.replaceChild(img, canvas);
+                            }
+                        } catch (replaceError) {
+                            console.error('Error replacing canvas with image', replaceError);
+                        }
+                    });
+                    
+                    gif.render();
+                } catch (error) {
+                    console.error('Error in GIF processing:', error);
+                }
+            } else {
+                // 静态图像处理
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                applySymmetry(ctx, type);
+            }
+        }
+
+        // 修改 applySymmetry 函数
+        function applySymmetry(ctx, type) {
+            // 创建临时画布来存储没有对称轴的原图
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = originalCanvas.width;
+            tempCanvas.height = originalCanvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // 重新绘制旋转后的原图（不包含对称轴和中心点）
+            tempCtx.save();
+            tempCtx.translate(tempCanvas.width/2, tempCanvas.height/2);
+            tempCtx.rotate(currentRotation * Math.PI / 180);
+            tempCtx.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+            tempCtx.restore();
+            
+            // 使用这个干净的画布作为源
+            const sourceCanvas = tempCanvas;
+            const sourceWidth = sourceCanvas.width;
+            const sourceHeight = sourceCanvas.height;
+
+            // 根据对称类型计算新的画布尺寸
+            let newWidth, newHeight;
+                switch (type) {
+                    case 'horizontalUp':
+                    newWidth = sourceWidth;
+                        newHeight = centerY * 2;
+                        break;
+                    case 'horizontalDown':
+                    newWidth = sourceWidth;
+                    newHeight = (sourceHeight - centerY) * 2;
+                        break;
+                    case 'verticalLeft':
+                        newWidth = centerX * 2;
+                    newHeight = sourceHeight;
+                        break;
+                    case 'verticalRight':
+                    newWidth = (sourceWidth - centerX) * 2;
+                    newHeight = sourceHeight;
+                        break;
+                }
+
+            // 调整目标画布尺寸
+            ctx.canvas.width = newWidth;
+            ctx.canvas.height = newHeight;
+
+            // 应用对称效果
+            ctx.save();
+            switch (type) {
+                case 'horizontalUp':
+                    // 绘制上半部分
+                    ctx.drawImage(sourceCanvas, 
+                        0, 0, sourceWidth, centerY,
+                        0, 0, sourceWidth, centerY);
+                    // 绘制镜像部分
+                    ctx.translate(0, newHeight);
+                    ctx.scale(1, -1);
+                    ctx.drawImage(sourceCanvas,
+                        0, 0, sourceWidth, centerY,
+                        0, 0, sourceWidth, centerY);
+                    break;
+                case 'horizontalDown':
+                    // 绘制下半部分
+                    ctx.drawImage(sourceCanvas,
+                        0, centerY, sourceWidth, sourceHeight - centerY,
+                        0, newHeight/2, sourceWidth, sourceHeight - centerY);
+                    // 绘制镜像部分
+                    ctx.translate(0, newHeight/2);
+                    ctx.scale(1, -1);
+                    ctx.drawImage(sourceCanvas,
+                        0, centerY, sourceWidth, sourceHeight - centerY,
+                        0, 0, sourceWidth, sourceHeight - centerY);
+                    break;
+                case 'verticalLeft':
+                    // 绘制左半部分
+                    ctx.drawImage(sourceCanvas,
+                        0, 0, centerX, sourceHeight,
+                        0, 0, centerX, sourceHeight);
+                    // 绘制镜像部分
+                    ctx.translate(newWidth, 0);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(sourceCanvas,
+                        0, 0, centerX, sourceHeight,
+                        0, 0, centerX, sourceHeight);
+                    break;
+                case 'verticalRight':
+                    // 绘制右半部分
+                    ctx.drawImage(sourceCanvas,
+                        centerX, 0, sourceWidth - centerX, sourceHeight,
+                        newWidth/2, 0, sourceWidth - centerX, sourceHeight);
+                    // 绘制镜像部分
+                    ctx.translate(newWidth/2, 0);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(sourceCanvas,
+                        centerX, 0, sourceWidth - centerX, sourceHeight,
+                        0, 0, sourceWidth - centerX, sourceHeight);
+                    break;
+            }
+            ctx.restore();
+        }
+
+        // 修改 processGIF 函数
         async function processGIF(arrayBuffer) {
             try {
                 // 确保画布元素存在
@@ -556,7 +728,7 @@
                     console.error('无法恢复画布元素');
                     return;
                 }
-
+                
                 // 清空之前的帧数据
                 gifFrames = [];
                 
@@ -568,11 +740,6 @@
                 // 设置初始中心点
                 centerX = width / 2;
                 centerY = height / 2;
-                
-                // 重置旋转角度
-                currentRotation = 0;
-                rotationSlider.value = "0";
-                rotationValue.textContent = "0";
                 
                 // 设置原始画布尺寸
                 originalCanvas.width = width;
@@ -587,17 +754,20 @@
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
                     gifFrames.push({ 
                         imageData, 
-                        delay: frameInfo.delay * 10
+                        delay: frameInfo.delay * 10 
                     });
                 }
                 
                 // 绘制第一帧
-                const ctxOriginal = originalCanvas.getContext('2d');
-                ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                drawCenterPoint(ctxOriginal);
+                    const ctxOriginal = originalCanvas.getContext('2d');
+                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                    drawCenterPoint(ctxOriginal);
                 
-                // 更新对称预览 - 使用新函数替代 generateSymmetry
-                updatePreviews();
+                // 生成对称预览
+                generateSymmetry(horizontalUpCanvas, 'horizontalUp');
+                generateSymmetry(horizontalDownCanvas, 'horizontalDown');
+                generateSymmetry(verticalLeftCanvas, 'verticalLeft');
+                generateSymmetry(verticalRightCanvas, 'verticalRight');
                 
             } catch (error) {
                 console.error('处理GIF时出错:', error);
@@ -658,47 +828,52 @@
             link.click();
         }
 
-        // 添加 processFile 函数
+        // 修改 processFile 函数，确保正确切换图像类型
         async function processFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 alert('请上传图片文件！');
                 return;
             }
 
+            // 清除之前的状态
+            isGif = false;
+            gifFrames = [];
+            
+            // 重置对称中心点
+            centerX = undefined;
+            centerY = undefined;
+            
+            // 重置旋转角度
+            currentRotation = 0;
+            rotationSlider.value = "0";
+            rotationValue.textContent = "0";
+            
+            // 重新创建所有画布
+            restoreCanvases();
+
             // 读取文件的前几个字节来判断真实格式
             const arrayBuffer = await file.arrayBuffer();
             const firstBytes = new Uint8Array(arrayBuffer.slice(0, 6));
 
-            // 判断是否为GIF格式（检查文件头标识）
-            // GIF文件头是 "GIF87a" 或 "GIF89a"
+            // 判断是否为GIF格式
             const isActuallyGif = firstBytes[0] === 71 && firstBytes[1] === 73 && 
                                  firstBytes[2] === 70 && firstBytes[3] === 56 && 
                                  (firstBytes[4] === 55 || firstBytes[4] === 57) && 
                                  firstBytes[5] === 97;
 
-            // 如果通过文件头检测为GIF或文件类型本身为GIF，则作为GIF处理
             isGif = isActuallyGif || file.type === 'image/gif';
 
-            if (isActuallyGif && file.type !== 'image/gif') {
-                console.log('检测到文件实际为GIF格式，尽管MIME类型为:', file.type);
-            }
-
-            // 保存原始GIF数据
             if (isGif) {
                 originalGifData = new Uint8Array(arrayBuffer.slice(0));
                 processGIF(arrayBuffer);
             } else {
                 // 处理静态图片
+                originalImage = new Image();
                 originalImage.src = URL.createObjectURL(file);
                 originalImage.onload = () => {
                     // 设置初始中心点
                     centerX = originalImage.width / 2;
                     centerY = originalImage.height / 2;
-                    
-                    // 重置旋转角度
-                    currentRotation = 0;
-                    rotationSlider.value = "0";
-                    rotationValue.textContent = "0";
                     
                     // 更新预览
                     updatePreviews();
@@ -714,12 +889,16 @@
                     console.error('找不到预览容器');
                     return false;
                 }
-                
-                // 移除所有预览项，重新创建
-                const oldItems = previewContainer.querySelectorAll('.preview-item');
-                oldItems.forEach(item => previewContainer.removeChild(item));
-                
-                // 创建新的预览项
+
+                // 删除所有现有的预览项，以确保不会创建重复的
+                const existingItems = previewContainer.querySelectorAll('.preview-item');
+                existingItems.forEach(item => {
+                    if (item.querySelector('p') && item.querySelector('p').textContent !== '原始图片') {
+                        previewContainer.removeChild(item);
+                    }
+                });
+
+                // 重新创建所有预览项
                 const canvasConfigs = [
                     { id: 'horizontalUpCanvas', text: '水平上对称' },
                     { id: 'horizontalDownCanvas', text: '水平下对称' },
@@ -728,6 +907,7 @@
                 ];
 
                 for (const config of canvasConfigs) {
+                    // 创建新的预览项
                     const containerDiv = document.createElement('div');
                     containerDiv.className = 'preview-item';
                     
