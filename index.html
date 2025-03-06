@@ -245,7 +245,7 @@
         function updateOriginalPreview() {
             const ctxOriginal = originalCanvas.getContext('2d');
             
-            // 保存当前中心点相对位置（转换为相对坐标）
+            // 保存当前中心点相对位置
             const relativeX = centerX / originalCanvas.width;
             const relativeY = centerY / originalCanvas.height;
             
@@ -253,8 +253,19 @@
             const angle = currentRotation * Math.PI / 180;
             const cos = Math.abs(Math.cos(angle));
             const sin = Math.abs(Math.sin(angle));
-            const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
-            const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
+            
+            let newWidth, newHeight;
+            
+            if (isGif && gifFrames.length > 0) {
+                // 使用第一帧的尺寸
+                const frameWidth = gifFrames[0].imageData.width;
+                const frameHeight = gifFrames[0].imageData.height;
+                newWidth = Math.ceil(frameWidth * cos + frameHeight * sin);
+                newHeight = Math.ceil(frameWidth * sin + frameHeight * cos);
+            } else {
+                newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
+                newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
+            }
             
             // 调整画布大小
             originalCanvas.width = newWidth;
@@ -264,10 +275,25 @@
             ctxOriginal.save();
             ctxOriginal.translate(newWidth/2, newHeight/2);
             ctxOriginal.rotate(angle);
-            ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+            
+            if (isGif && gifFrames.length > 0) {
+                // 创建临时画布来绘制GIF帧
+                const tempCanvas = document.createElement('canvas');
+                const frameData = gifFrames[0].imageData;
+                tempCanvas.width = frameData.width;
+                tempCanvas.height = frameData.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(frameData, 0, 0);
+                
+                // 绘制旋转后的GIF帧
+                ctxOriginal.drawImage(tempCanvas, -frameData.width/2, -frameData.height/2);
+            } else {
+                ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
+            }
+            
             ctxOriginal.restore();
             
-            // 更新中心点位置（保持相对位置）
+            // 更新中心点位置
             centerX = newWidth * relativeX;
             centerY = newHeight * relativeY;
             
@@ -470,25 +496,13 @@
 
         // 修改 generateSymmetry 函数
         function generateSymmetry(canvas, type) {
-            // 确保我们有正确的画布元素
-            const canvasId = type + 'Canvas';  // 添加 Canvas 后缀
+            // 使用固定的画布元素，而不是传入的参数
+            const canvasId = type + 'Canvas';
             const targetCanvas = document.getElementById(canvasId);
             
-            if (!targetCanvas || !targetCanvas.parentNode) {
-                console.error('画布元素没有父节点:', type);
-                // 尝试恢复画布
-                if (restoreCanvases()) {
-                    // 重新获取画布元素
-                    const restoredCanvas = document.getElementById(canvasId);
-                    if (restoredCanvas && restoredCanvas.parentNode) {
-                        // 使用恢复的画布继续处理
-                        canvas = restoredCanvas;
-                    } else {
-                        return;  // 如果还是失败就退出
-                    }
-                } else {
-                    return;  // 如果恢复失败就退出
-                }
+            if (!targetCanvas) {
+                console.error('找不到画布元素:', canvasId);
+                return;
             }
 
             if (isGif) {
@@ -660,8 +674,8 @@
                 }
             } else {
                 // 静态图像处理
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const ctx = targetCanvas.getContext('2d');
+                ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
                 applySymmetry(ctx, type);
             }
         }
@@ -941,26 +955,12 @@
                     console.error('找不到预览容器');
                     return false;
                 }
-
-                // 获取所有预览项
-                const previewItems = previewContainer.querySelectorAll('.preview-item');
-                const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
                 
-                // 检查每个ID是否有多个实例
-                canvasIds.forEach(id => {
-                    const elements = document.querySelectorAll(`#${id}`);
-                    if (elements.length > 1) {
-                        // 保留第一个，删除其他的
-                        for (let i = 1; i < elements.length; i++) {
-                            const parent = elements[i].parentNode;
-                            if (parent && parent.classList.contains('preview-item')) {
-                                previewContainer.removeChild(parent);
-                            }
-                        }
-                    }
-                });
-
-                // 确保每个画布都存在
+                // 移除所有预览项，重新创建
+                const oldItems = previewContainer.querySelectorAll('.preview-item');
+                oldItems.forEach(item => previewContainer.removeChild(item));
+                
+                // 创建新的预览项
                 const canvasConfigs = [
                     { id: 'horizontalUpCanvas', text: '水平上对称' },
                     { id: 'horizontalDownCanvas', text: '水平下对称' },
@@ -969,35 +969,29 @@
                 ];
 
                 for (const config of canvasConfigs) {
-                    let canvas = document.getElementById(config.id);
-                    let containerDiv = canvas ? canvas.parentNode : null;
-
-                    if (!containerDiv || !containerDiv.classList.contains('preview-item')) {
-                        // 如果画布或其容器不存在，创建新的
-                        containerDiv = document.createElement('div');
-                        containerDiv.className = 'preview-item';
-                        
-                        canvas = document.createElement('canvas');
-                        canvas.id = config.id;
-                        
-                        const p = document.createElement('p');
-                        p.textContent = config.text;
-                        
-                        const copyBtn = document.createElement('button');
-                        copyBtn.textContent = '复制';
-                        copyBtn.onclick = () => copyImage(config.id);
-                        
-                        const downloadBtn = document.createElement('button');
-                        downloadBtn.textContent = '下载';
-                        downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
-                        
-                        containerDiv.appendChild(canvas);
-                        containerDiv.appendChild(p);
-                        containerDiv.appendChild(copyBtn);
-                        containerDiv.appendChild(downloadBtn);
-                        
-                        previewContainer.appendChild(containerDiv);
-                    }
+                    const containerDiv = document.createElement('div');
+                    containerDiv.className = 'preview-item';
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.id = config.id;
+                    
+                    const p = document.createElement('p');
+                    p.textContent = config.text;
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.textContent = '复制';
+                    copyBtn.onclick = () => copyImage(config.id);
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = '下载';
+                    downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
+                    
+                    containerDiv.appendChild(canvas);
+                    containerDiv.appendChild(p);
+                    containerDiv.appendChild(copyBtn);
+                    containerDiv.appendChild(downloadBtn);
+                    
+                    previewContainer.appendChild(containerDiv);
                 }
                 
                 return true;
