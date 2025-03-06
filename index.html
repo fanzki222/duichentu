@@ -283,63 +283,88 @@
                 return;
             }
 
-            // 使用画布的实际尺寸而不是显示尺寸
+            // 使用画布的实际尺寸
             const canvasWidth = originalCanvas.width;
             const canvasHeight = originalCanvas.height;
             
             if (canvasWidth <= 0 || canvasHeight <= 0) {
-                console.error('画布尺寸无效');
+                console.error('画布尺寸无效', canvasWidth, canvasHeight);
                 return;
             }
 
             const rect = originalCanvas.getBoundingClientRect();
             
-            // 计算点击位置相对于画布的比例
-            const relativeX = (e.clientX - rect.left) / rect.width;
-            const relativeY = (e.clientY - rect.top) / rect.height;
+            // 添加调试信息
+            console.log('Canvas rect:', rect);
+            console.log('Click coordinates:', e.clientX, e.clientY);
+            console.log('Canvas dimensions:', canvasWidth, canvasHeight);
             
-            // 将比例转换为实际画布坐标
-            const newCenterX = relativeX * canvasWidth;
-            const newCenterY = relativeY * canvasHeight;
-            
-            // 验证新的中心点坐标是否有效
-            if (!isFinite(newCenterX) || !isFinite(newCenterY) ||
-                newCenterX < 0 || newCenterY < 0 ||
-                newCenterX > canvasWidth || newCenterY > canvasHeight) {
-                console.error('计算的中心点坐标无效');
+            // 确保 rect 的尺寸有效
+            if (rect.width <= 0 || rect.height <= 0) {
+                console.error('getBoundingClientRect 返回的尺寸无效');
                 return;
             }
             
-            // 更新中心点位置
-            centerX = newCenterX;
-            centerY = newCenterY;
-            
-            // 更新预览
-            const ctxOriginal = originalCanvas.getContext('2d');
-            ctxOriginal.clearRect(0, 0, canvasWidth, canvasHeight);
-            
-            if (isGif && gifFrames.length > 0) {
-                ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                if (currentRotation !== 0) {
-                    drawRotatedImage(ctxOriginal, originalCanvas);
+            try {
+                // 计算点击位置相对于画布的比例
+                const relativeX = (e.clientX - rect.left) / rect.width;
+                const relativeY = (e.clientY - rect.top) / rect.height;
+                
+                console.log('Relative coordinates:', relativeX, relativeY);
+                
+                // 确保相对坐标在有效范围内
+                if (relativeX < 0 || relativeX > 1 || relativeY < 0 || relativeY > 1) {
+                    console.error('点击位置在画布范围外');
+                    return;
                 }
-            } else {
-                ctxOriginal.drawImage(originalImage, 0, 0);
-                if (currentRotation !== 0) {
-                    drawRotatedImage(ctxOriginal, originalCanvas);
+                
+                // 将比例转换为实际画布坐标
+                const newCenterX = Math.round(relativeX * canvasWidth);
+                const newCenterY = Math.round(relativeY * canvasHeight);
+                
+                console.log('New center coordinates:', newCenterX, newCenterY);
+                
+                // 验证新的中心点坐标是否有效
+                if (!isFinite(newCenterX) || !isFinite(newCenterY) ||
+                    newCenterX < 0 || newCenterY < 0 ||
+                    newCenterX > canvasWidth || newCenterY > canvasHeight) {
+                    console.error('计算的中心点坐标无效', newCenterX, newCenterY);
+                    return;
                 }
+                
+                // 更新中心点位置
+                centerX = newCenterX;
+                centerY = newCenterY;
+                
+                // 更新预览
+                const ctxOriginal = originalCanvas.getContext('2d');
+                ctxOriginal.clearRect(0, 0, canvasWidth, canvasHeight);
+                
+                if (isGif && gifFrames.length > 0) {
+                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                    if (currentRotation !== 0) {
+                        drawRotatedImage(ctxOriginal, originalCanvas);
+                    }
+                } else {
+                    ctxOriginal.drawImage(originalImage, 0, 0);
+                    if (currentRotation !== 0) {
+                        drawRotatedImage(ctxOriginal, originalCanvas);
+                    }
+                }
+                
+                drawCenterPoint(ctxOriginal);
+                
+                // 重新生成对称图像
+                const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+                symmetryTypes.forEach(type => {
+                    const canvas = document.getElementById(type + 'Canvas');
+                    if (canvas) {
+                        generateSymmetry(canvas, type);
+                    }
+                });
+            } catch (error) {
+                console.error('处理点击事件时出错:', error);
             }
-            
-            drawCenterPoint(ctxOriginal);
-            
-            // 重新生成对称图像
-            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
-            symmetryTypes.forEach(type => {
-                const canvas = document.getElementById(type + 'Canvas');
-                if (canvas) {
-                    generateSymmetry(canvas, type);
-                }
-            });
         });
 
         // 修改 drawCenterPoint 函数
