@@ -320,77 +320,107 @@
 
         // 修改 drawCenterPoint 函数
         function drawCenterPoint(ctx) {
+            // 确保centerX和centerY是有效的数字
+            if (isNaN(centerX) || isNaN(centerY) || 
+                !isFinite(centerX) || !isFinite(centerY) ||
+                centerX < 0 || centerY < 0 ||
+                centerX > ctx.canvas.width || centerY > ctx.canvas.height) {
+                // 如果中心点无效，使用画布中心
+                centerX = ctx.canvas.width / 2;
+                centerY = ctx.canvas.height / 2;
+            }
+            
             const rect = ctx.canvas.getBoundingClientRect();
             // 计算缩放比例，用于调整显示大小
-            const scaleX = ctx.canvas.width / rect.width;
-            const scaleY = ctx.canvas.height / rect.height;
-            const scale = Math.max(scaleX, scaleY);
+            const scaleX = ctx.canvas.width / Math.max(1, rect.width);
+            const scaleY = ctx.canvas.height / Math.max(1, rect.height);
+            const scale = Math.max(1, Math.max(scaleX, scaleY));
             
             ctx.save();
             
             // 设置虚线样式，根据缩放比例调整
-            const dashLength = Math.max(5, 5 * scale / 4);  // 最小5px，随缩放增大
+            const dashLength = Math.max(5, 5 * scale / 4);
             ctx.setLineDash([dashLength]);
-            ctx.lineWidth = Math.max(2, scale / 8);  // 最小2px，随缩放增大
-            
-            // 创建渐变色轴线，提高可见性
-            const verticalGradient = ctx.createLinearGradient(centerX, 0, centerX, ctx.canvas.height);
-            const horizontalGradient = ctx.createLinearGradient(0, centerY, ctx.canvas.width, centerY);
-            
-            // 设置渐变色
-            [verticalGradient, horizontalGradient].forEach(gradient => {
-                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');    // 红色
-                gradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)'); // 黄色
-                gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');    // 红色
-            });
-            
-            // 添加白色描边以提高对比度
-            // 绘制垂直对称轴
-            // 先绘制白色描边
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = Math.max(4, scale / 6);  // 更宽的白色描边
-            ctx.beginPath();
-            ctx.moveTo(centerX, 0);
-            ctx.lineTo(centerX, ctx.canvas.height);
-            ctx.stroke();
-            
-            // 再绘制彩色轴线
-            ctx.strokeStyle = verticalGradient;
             ctx.lineWidth = Math.max(2, scale / 8);
-            ctx.beginPath();
-            ctx.moveTo(centerX, 0);
-            ctx.lineTo(centerX, ctx.canvas.height);
-            ctx.stroke();
             
-            // 绘制水平对称轴
-            // 先绘制白色描边
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = Math.max(4, scale / 6);
-            ctx.beginPath();
-            ctx.moveTo(0, centerY);
-            ctx.lineTo(ctx.canvas.width, centerY);
-            ctx.stroke();
-            
-            // 再绘制彩色轴线
-            ctx.strokeStyle = horizontalGradient;
-            ctx.lineWidth = Math.max(2, scale / 8);
-            ctx.beginPath();
-            ctx.moveTo(0, centerY);
-            ctx.lineTo(ctx.canvas.width, centerY);
-            ctx.stroke();
+            // 安全地创建渐变
+            try {
+                // 垂直渐变
+                const verticalGradient = ctx.createLinearGradient(
+                    centerX, 0, 
+                    centerX, Math.max(1, ctx.canvas.height)
+                );
+                verticalGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+                verticalGradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)');
+                verticalGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+                
+                // 水平渐变
+                const horizontalGradient = ctx.createLinearGradient(
+                    0, centerY, 
+                    Math.max(1, ctx.canvas.width), centerY
+                );
+                horizontalGradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+                horizontalGradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)');
+                horizontalGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+                
+                // 绘制垂直对称轴
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = Math.max(4, scale / 6);
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, ctx.canvas.height);
+                ctx.stroke();
+                
+                ctx.strokeStyle = verticalGradient;
+                ctx.lineWidth = Math.max(2, scale / 8);
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, ctx.canvas.height);
+                ctx.stroke();
+                
+                // 绘制水平对称轴
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = Math.max(4, scale / 6);
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(ctx.canvas.width, centerY);
+                ctx.stroke();
+                
+                ctx.strokeStyle = horizontalGradient;
+                ctx.lineWidth = Math.max(2, scale / 8);
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(ctx.canvas.width, centerY);
+                ctx.stroke();
+            } catch (e) {
+                // 如果渐变创建失败，使用纯色
+                console.warn('创建渐变失败，使用纯色:', e);
+                
+                // 绘制垂直对称轴
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.lineWidth = Math.max(2, scale / 8);
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, ctx.canvas.height);
+                ctx.stroke();
+                
+                // 绘制水平对称轴
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(ctx.canvas.width, centerY);
+                ctx.stroke();
+            }
             
             // 绘制中心点
-            // 先绘制白色外圈
-            ctx.setLineDash([]);  // 取消虚线
+            ctx.setLineDash([]);
             ctx.beginPath();
-            const outerRadius = Math.max(6, scale / 4);  // 外圈半径
+            const outerRadius = Math.max(6, scale / 4);
             ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
             ctx.fillStyle = 'white';
             ctx.fill();
             
-            // 绘制内部红色圆点
             ctx.beginPath();
-            const innerRadius = Math.max(4, scale / 6);  // 内圈半径
+            const innerRadius = Math.max(4, scale / 6);
             ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
             ctx.fill();
@@ -737,7 +767,7 @@
         }
 
         // 修改 processGIF 函数
-        async function processGIF(arrayBuffer) {
+        function processGIF(arrayBuffer) {
             try {
                 // 确保画布元素存在
                 if (!restoreCanvases()) {
@@ -757,6 +787,11 @@
                 centerX = width / 2;
                 centerY = height / 2;
                 
+                // 重置旋转角度
+                currentRotation = 0;
+                rotationSlider.value = "0";
+                rotationValue.textContent = "0";
+                
                 // 设置原始画布尺寸
                 originalCanvas.width = width;
                 originalCanvas.height = height;
@@ -770,20 +805,26 @@
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
                     gifFrames.push({ 
                         imageData, 
-                        delay: frameInfo.delay * 10 
+                        delay: frameInfo.delay * 10
                     });
                 }
                 
                 // 绘制第一帧
-                    const ctxOriginal = originalCanvas.getContext('2d');
-                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                    drawCenterPoint(ctxOriginal);
+                const ctxOriginal = originalCanvas.getContext('2d');
+                ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                drawCenterPoint(ctxOriginal);
                 
                 // 生成对称预览
-                generateSymmetry(horizontalUpCanvas, 'horizontalUp');
-                generateSymmetry(horizontalDownCanvas, 'horizontalDown');
-                generateSymmetry(verticalLeftCanvas, 'verticalLeft');
-                generateSymmetry(verticalRightCanvas, 'verticalRight');
+                const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
+                symmetryTypes.forEach(type => {
+                    const canvas = document.getElementById(type + 'Canvas');
+                    if (canvas) {
+                        // 重置画布
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        generateSymmetry(canvas, type);
+                    }
+                });
                 
             } catch (error) {
                 console.error('处理GIF时出错:', error);
@@ -901,22 +942,25 @@
                     return false;
                 }
 
-                // 先移除所有重复的预览项
-                const existingItems = {};
+                // 获取所有预览项
                 const previewItems = previewContainer.querySelectorAll('.preview-item');
+                const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
                 
-                previewItems.forEach(item => {
-                    const canvas = item.querySelector('canvas');
-                    if (canvas && canvas.id) {
-                        if (existingItems[canvas.id]) {
-                            // 如果已经存在相同ID的画布，移除这个重复项
-                            previewContainer.removeChild(item);
-                        } else {
-                            existingItems[canvas.id] = item;
+                // 检查每个ID是否有多个实例
+                canvasIds.forEach(id => {
+                    const elements = document.querySelectorAll(`#${id}`);
+                    if (elements.length > 1) {
+                        // 保留第一个，删除其他的
+                        for (let i = 1; i < elements.length; i++) {
+                            const parent = elements[i].parentNode;
+                            if (parent && parent.classList.contains('preview-item')) {
+                                previewContainer.removeChild(parent);
+                            }
                         }
                     }
                 });
 
+                // 确保每个画布都存在
                 const canvasConfigs = [
                     { id: 'horizontalUpCanvas', text: '水平上对称' },
                     { id: 'horizontalDownCanvas', text: '水平下对称' },
@@ -925,7 +969,6 @@
                 ];
 
                 for (const config of canvasConfigs) {
-                    // 检查是否已经存在这个ID的画布
                     let canvas = document.getElementById(config.id);
                     let containerDiv = canvas ? canvas.parentNode : null;
 
