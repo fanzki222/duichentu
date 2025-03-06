@@ -283,25 +283,29 @@
                 return;
             }
 
-            const rect = originalCanvas.getBoundingClientRect();
-            // 添加安全检查
-            if (rect.width <= 0 || rect.height <= 0) {
+            // 使用画布的实际尺寸而不是显示尺寸
+            const canvasWidth = originalCanvas.width;
+            const canvasHeight = originalCanvas.height;
+            
+            if (canvasWidth <= 0 || canvasHeight <= 0) {
                 console.error('画布尺寸无效');
                 return;
             }
 
-            // 计算缩放比例时添加保护
-            const scaleX = originalCanvas.width / rect.width;
-            const scaleY = originalCanvas.height / rect.height;
+            const rect = originalCanvas.getBoundingClientRect();
             
-            // 计算新的中心点位置，添加边界检查
-            const newCenterX = (e.clientX - rect.left) * scaleX;
-            const newCenterY = (e.clientY - rect.top) * scaleY;
+            // 计算点击位置相对于画布的比例
+            const relativeX = (e.clientX - rect.left) / rect.width;
+            const relativeY = (e.clientY - rect.top) / rect.height;
+            
+            // 将比例转换为实际画布坐标
+            const newCenterX = relativeX * canvasWidth;
+            const newCenterY = relativeY * canvasHeight;
             
             // 验证新的中心点坐标是否有效
             if (!isFinite(newCenterX) || !isFinite(newCenterY) ||
                 newCenterX < 0 || newCenterY < 0 ||
-                newCenterX > originalCanvas.width || newCenterY > originalCanvas.height) {
+                newCenterX > canvasWidth || newCenterY > canvasHeight) {
                 console.error('计算的中心点坐标无效');
                 return;
             }
@@ -312,7 +316,7 @@
             
             // 更新预览
             const ctxOriginal = originalCanvas.getContext('2d');
-            ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+            ctxOriginal.clearRect(0, 0, canvasWidth, canvasHeight);
             
             if (isGif && gifFrames.length > 0) {
                 ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
@@ -326,18 +330,7 @@
                 }
             }
             
-            // 确保中心点坐标仍然有效
-            if (isFinite(centerX) && isFinite(centerY) &&
-                centerX >= 0 && centerY >= 0 &&
-                centerX <= originalCanvas.width && centerY <= originalCanvas.height) {
-                drawCenterPoint(ctxOriginal);
-            } else {
-                console.error('中心点坐标在处理后变为无效');
-                // 重置为画布中心
-                centerX = originalCanvas.width / 2;
-                centerY = originalCanvas.height / 2;
-                drawCenterPoint(ctxOriginal);
-            }
+            drawCenterPoint(ctxOriginal);
             
             // 重新生成对称图像
             const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
