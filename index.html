@@ -291,45 +291,28 @@
 
         // 修改原始画布的点击事件处理
         originalCanvas.addEventListener('click', (e) => {
-            // 确保画布元素存在
-            if (!restoreCanvases()) {
-                console.error('无法恢复画布元素');
-                return;
-            }
-
-                const rect = originalCanvas.getBoundingClientRect();
-                const scaleX = originalCanvas.width / rect.width;
-                const scaleY = originalCanvas.height / rect.height;
+            const rect = originalCanvas.getBoundingClientRect();
+            const scaleX = originalCanvas.width / rect.width;
+            const scaleY = originalCanvas.height / rect.height;
             
-                centerX = (e.clientX - rect.left) * scaleX;
-                centerY = (e.clientY - rect.top) * scaleY;
-                
+            // 计算点击位置相对于画布的实际坐标
+            centerX = (e.clientX - rect.left) * scaleX;
+            centerY = (e.clientY - rect.top) * scaleY;
+            
             // 更新预览
-                            const ctxOriginal = originalCanvas.getContext('2d');
-            ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
-            
             if (isGif && gifFrames.length > 0) {
+                // 处理GIF图像 - 不应用旋转
+                const ctxOriginal = originalCanvas.getContext('2d');
+                ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
                 ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                if (currentRotation !== 0) {
-                    drawRotatedImage(ctxOriginal, originalCanvas);
-                            }
-                        } else {
-                ctxOriginal.drawImage(originalImage, 0, 0);
-                if (currentRotation !== 0) {
-                    drawRotatedImage(ctxOriginal, originalCanvas);
-                        }
-                    }
-
-            drawCenterPoint(ctxOriginal);
-
-            // 重新生成对称图像
-            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
-            symmetryTypes.forEach(type => {
-                const canvas = document.getElementById(type + 'Canvas');
-                if (canvas) {
-                    generateSymmetry(canvas, type);
-                }
-            });
+                drawCenterPoint(ctxOriginal);
+            } else {
+                // 处理静态图像 - 保持旋转状态
+                updateOriginalPreview();
+            }
+            
+            // 更新对称图像
+            updateSymmetryPreviews();
         });
 
         // 修改 drawCenterPoint 函数
@@ -879,27 +862,20 @@
                 return;
             }
 
-            // 读取文件的前几个字节来判断真实格式
+            // 读取文件判断类型
             const arrayBuffer = await file.arrayBuffer();
             const firstBytes = new Uint8Array(arrayBuffer.slice(0, 6));
-
-            // 判断是否为GIF格式
             const isActuallyGif = firstBytes[0] === 71 && firstBytes[1] === 73 && 
                                  firstBytes[2] === 70 && firstBytes[3] === 56 && 
                                  (firstBytes[4] === 55 || firstBytes[4] === 57) && 
                                  firstBytes[5] === 97;
 
-            // 先重置旋转角度
+            // 重置旋转角度
             currentRotation = 0;
             rotationSlider.value = "0";
             rotationValue.textContent = "0";
 
-            // 如果之前是静态图片，现在是GIF，或反之，先重建预览区域
-            if (isGif !== (isActuallyGif || file.type === 'image/gif')) {
-                // 清空并重建预览区域
-                restoreCanvases();
-            }
-
+            // 设置图像类型
             isGif = isActuallyGif || file.type === 'image/gif';
 
             if (isGif) {
@@ -907,6 +883,7 @@
                 rotationSlider.disabled = true;
                 rotationSlider.title = "GIF图片不支持旋转";
                 
+                // 处理GIF
                 originalGifData = new Uint8Array(arrayBuffer.slice(0));
                 processGIF(arrayBuffer);
             } else {
@@ -921,8 +898,13 @@
                     centerX = originalImage.width / 2;
                     centerY = originalImage.height / 2;
                     
+                    // 设置原始画布尺寸
+                    originalCanvas.width = originalImage.width;
+                    originalCanvas.height = originalImage.height;
+                    
                     // 更新预览
-                    updatePreviews();
+                    updateOriginalPreview();
+                    updateSymmetryPreviews();
                 };
             }
         }
@@ -982,6 +964,80 @@
                 return true;
             } catch (error) {
                 console.error('恢复画布时出错:', error);
+                return false;
+            }
+        }
+
+        // 添加新函数，只更新对称图像预览，不重建预览窗口
+        function updateSymmetryPreviews() {
+            const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
+            
+            canvasIds.forEach(id => {
+                const canvas = document.getElementById(id);
+                if (canvas) {
+                    const type = id.replace('Canvas', '');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    applySymmetry(ctx, type);
+                }
+            });
+        }
+
+        // 在页面加载时初始化预览窗口
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCanvases();
+        });
+
+        // 彻底修复 restoreCanvases 函数 - 只在页面加载和切换图像类型时调用一次
+        function initializeCanvases() {
+            try {
+                const previewContainer = document.getElementById('previewContainer');
+                if (!previewContainer) {
+                    console.error('找不到预览容器');
+                    return false;
+                }
+
+                // 清除现有的预览窗口（保留原图）
+                const existingCanvases = previewContainer.querySelectorAll('.preview-item:not(:first-child)');
+                existingCanvases.forEach(item => previewContainer.removeChild(item));
+
+                // 创建新的预览窗口
+                const canvasConfigs = [
+                    { id: 'horizontalUpCanvas', text: '水平上对称' },
+                    { id: 'horizontalDownCanvas', text: '水平下对称' },
+                    { id: 'verticalLeftCanvas', text: '垂直左对称' },
+                    { id: 'verticalRightCanvas', text: '垂直右对称' }
+                ];
+
+                for (const config of canvasConfigs) {
+                    const containerDiv = document.createElement('div');
+                    containerDiv.className = 'preview-item';
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.id = config.id;
+                    
+                    const p = document.createElement('p');
+                    p.textContent = config.text;
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.textContent = '复制';
+                    copyBtn.onclick = () => copyImage(config.id);
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = '下载';
+                    downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
+                    
+                    containerDiv.appendChild(canvas);
+                    containerDiv.appendChild(p);
+                    containerDiv.appendChild(copyBtn);
+                    containerDiv.appendChild(downloadBtn);
+                    
+                    previewContainer.appendChild(containerDiv);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('初始化画布时出错:', error);
                 return false;
             }
         }
