@@ -733,7 +733,7 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数
+        // 修改 processGIF 函数，在重新选择中心点后支持GIF预览更新
         async function processGIF(arrayBuffer) {
             try {
                 // 先清空之前的画布内容
@@ -787,14 +787,8 @@
                 ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
                 drawCenterPoint(ctxOriginal);
                 
-                // 生成对称预览
-                symmetryCanvases.forEach(id => {
-                    const canvas = document.getElementById(id);
-                    if (canvas) {
-                        const type = id.replace('Canvas', '');
-                        generateSymmetry(canvas, type);
-                    }
-                });
+                // 使用updateSymmetryPreviews而不是直接调用generateSymmetry
+                updateSymmetryPreviews();
                 
             } catch (error) {
                 console.error('处理GIF时出错:', error);
@@ -968,7 +962,7 @@
             }
         }
 
-        // 添加新函数，只更新对称图像预览，不重建预览窗口
+        // 修改 updateSymmetryPreviews 函数，支持GIF处理
         function updateSymmetryPreviews() {
             const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
             
@@ -976,9 +970,15 @@
                 const canvas = document.getElementById(id);
                 if (canvas) {
                     const type = id.replace('Canvas', '');
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    applySymmetry(ctx, type);
+                    if (isGif) {
+                        // 对于GIF，使用generateSymmetry处理
+                        generateSymmetry(canvas, type);
+                    } else {
+                        // 对于静态图像，使用applySymmetry处理
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        applySymmetry(ctx, type);
+                    }
                 }
             });
         }
