@@ -635,23 +635,25 @@
                                     0, 0, frameWidth, centerY, 
                                     0, 0, frameWidth, centerY);
                                 // 镜像绘制
-                                resultCtx.translate(0, newHeight);
+                                resultCtx.save();
                                 resultCtx.scale(1, -1);
                                 resultCtx.drawImage(tempCanvas,
                                     0, 0, frameWidth, centerY,
-                                    0, 0, frameWidth, centerY);
+                                    0, -newHeight, frameWidth, centerY);
+                                resultCtx.restore();
                                 break;
                             case 'horizontalDown':
                                 // 绘制下半部分
                                 resultCtx.drawImage(tempCanvas,
                                     0, centerY, frameWidth, frameHeight - centerY,
-                                    0, newHeight/2, frameWidth, frameHeight - centerY);
+                                    0, 0, frameWidth, frameHeight - centerY);
                                 // 镜像绘制
+                                resultCtx.save();
                                 resultCtx.scale(1, -1);
-                                resultCtx.translate(0, -newHeight);
                                 resultCtx.drawImage(tempCanvas,
                                     0, centerY, frameWidth, frameHeight - centerY,
-                                    0, 0, frameWidth, frameHeight - centerY);
+                                    0, -newHeight, frameWidth, frameHeight - centerY);
+                                resultCtx.restore();
                                 break;
                             case 'verticalLeft':
                                 // 绘制左半部分
@@ -659,23 +661,25 @@
                                     0, 0, centerX, frameHeight,
                                     0, 0, centerX, frameHeight);
                                 // 镜像绘制
+                                resultCtx.save();
                                 resultCtx.scale(-1, 1);
-                                resultCtx.translate(-newWidth, 0);
                                 resultCtx.drawImage(tempCanvas,
                                     0, 0, centerX, frameHeight,
-                                    0, 0, centerX, frameHeight);
+                                    -newWidth, 0, centerX, frameHeight);
+                                resultCtx.restore();
                                 break;
                             case 'verticalRight':
                                 // 绘制右半部分
                                 resultCtx.drawImage(tempCanvas,
                                     centerX, 0, frameWidth - centerX, frameHeight,
-                                    newWidth/2, 0, frameWidth - centerX, frameHeight);
+                                    0, 0, frameWidth - centerX, frameHeight);
                                 // 镜像绘制
+                                resultCtx.save();
                                 resultCtx.scale(-1, 1);
-                                resultCtx.translate(-newWidth, 0);
                                 resultCtx.drawImage(tempCanvas,
                                     centerX, 0, frameWidth - centerX, frameHeight,
-                                    0, 0, frameWidth - centerX, frameHeight);
+                                    -newWidth, 0, frameWidth - centerX, frameHeight);
+                                resultCtx.restore();
                                 break;
                         }
                         resultCtx.restore();
@@ -793,48 +797,52 @@
                     ctx.drawImage(sourceCanvas, 
                         0, 0, sourceWidth, centerY,
                         0, 0, sourceWidth, centerY);
-                    // 绘制镜像部分
-                    ctx.translate(0, newHeight);
+                    // 镜像绘制
+                    ctx.save();
                     ctx.scale(1, -1);
                     ctx.drawImage(sourceCanvas,
                         0, 0, sourceWidth, centerY,
-                        0, 0, sourceWidth, centerY);
+                        0, -newHeight, sourceWidth, centerY);
+                    ctx.restore();
                     break;
                 case 'horizontalDown':
                     // 绘制下半部分
                     ctx.drawImage(sourceCanvas,
                         0, centerY, sourceWidth, sourceHeight - centerY,
-                        0, newHeight/2, sourceWidth, sourceHeight - centerY);
-                    // 绘制镜像部分
-                    ctx.translate(0, newHeight/2);
+                        0, 0, sourceWidth, sourceHeight - centerY);
+                    // 镜像绘制
+                    ctx.save();
                     ctx.scale(1, -1);
                     ctx.drawImage(sourceCanvas,
                         0, centerY, sourceWidth, sourceHeight - centerY,
-                        0, 0, sourceWidth, sourceHeight - centerY);
+                        0, -newHeight, sourceWidth, sourceHeight - centerY);
+                    ctx.restore();
                     break;
                 case 'verticalLeft':
                     // 绘制左半部分
                     ctx.drawImage(sourceCanvas,
                         0, 0, centerX, sourceHeight,
                         0, 0, centerX, sourceHeight);
-                    // 绘制镜像部分
-                    ctx.translate(newWidth, 0);
+                    // 镜像绘制
+                    ctx.save();
                     ctx.scale(-1, 1);
                     ctx.drawImage(sourceCanvas,
                         0, 0, centerX, sourceHeight,
-                        0, 0, centerX, sourceHeight);
+                        -newWidth, 0, centerX, sourceHeight);
+                    ctx.restore();
                     break;
                 case 'verticalRight':
                     // 绘制右半部分
                     ctx.drawImage(sourceCanvas,
                         centerX, 0, sourceWidth - centerX, sourceHeight,
-                        newWidth/2, 0, sourceWidth - centerX, sourceHeight);
-                    // 绘制镜像部分
-                    ctx.translate(newWidth/2, 0);
+                        0, 0, sourceWidth - centerX, sourceHeight);
+                    // 镜像绘制
+                    ctx.save();
                     ctx.scale(-1, 1);
                     ctx.drawImage(sourceCanvas,
                         centerX, 0, sourceWidth - centerX, sourceHeight,
-                        0, 0, sourceWidth - centerX, sourceHeight);
+                        -newWidth, 0, sourceWidth - centerX, sourceHeight);
+                    ctx.restore();
                     break;
             }
             ctx.restore();
