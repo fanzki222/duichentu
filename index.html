@@ -632,53 +632,53 @@
                                 case 'horizontalUp':
                                 // 绘制上半部分
                                 resultCtx.drawImage(tempCanvas, 
-                                    0, 0, frameWidth, centerY, 
-                                    0, 0, frameWidth, centerY);
+                                    0, 0, frameWidth, Math.ceil(centerY), 
+                                    0, 0, frameWidth, Math.ceil(centerY));
+                                // 镜像绘制 - 增加1px重叠
+                                resultCtx.save();
+                                resultCtx.scale(1, -1);
+                                resultCtx.drawImage(tempCanvas,
+                                    0, 0, frameWidth, Math.ceil(centerY),
+                                    0, -newHeight, frameWidth, Math.ceil(centerY));
+                                resultCtx.restore();
+                                    break;
+                                case 'horizontalDown':
+                                // 绘制下半部分 - 减小1px以避免重叠
+                                resultCtx.drawImage(tempCanvas,
+                                    0, Math.floor(centerY), frameWidth, frameHeight - Math.floor(centerY),
+                                    0, newHeight/2, frameWidth, frameHeight - Math.floor(centerY));
                                 // 镜像绘制
                                 resultCtx.save();
                                 resultCtx.scale(1, -1);
                                 resultCtx.drawImage(tempCanvas,
-                                    0, 0, frameWidth, centerY,
-                                    0, -newHeight, frameWidth, centerY);
-                                resultCtx.restore();
-                                    break;
-                                case 'horizontalDown':
-                                // 绘制下半部分（放在下半部分）
-                                resultCtx.drawImage(tempCanvas,
-                                    0, centerY, frameWidth, frameHeight - centerY,
-                                    0, newHeight/2, frameWidth, frameHeight - centerY);
-                                // 镜像绘制（放在上半部分）
-                                resultCtx.save();
-                                resultCtx.scale(1, -1);
-                                resultCtx.drawImage(tempCanvas,
-                                    0, centerY, frameWidth, frameHeight - centerY,
-                                    0, -newHeight/2, frameWidth, frameHeight - centerY);
+                                    0, Math.floor(centerY), frameWidth, frameHeight - Math.floor(centerY),
+                                    0, -newHeight/2, frameWidth, frameHeight - Math.floor(centerY));
                                 resultCtx.restore();
                                     break;
                                 case 'verticalLeft':
                                 // 绘制左半部分
                                 resultCtx.drawImage(tempCanvas,
-                                    0, 0, centerX, frameHeight,
-                                    0, 0, centerX, frameHeight);
+                                    0, 0, Math.ceil(centerX), frameHeight,
+                                    0, 0, Math.ceil(centerX), frameHeight);
+                                // 镜像绘制 - 增加1px重叠
+                                resultCtx.save();
+                                resultCtx.scale(-1, 1);
+                                resultCtx.drawImage(tempCanvas,
+                                    0, 0, Math.ceil(centerX), frameHeight,
+                                    -newWidth, 0, Math.ceil(centerX), frameHeight);
+                                resultCtx.restore();
+                                    break;
+                                case 'verticalRight':
+                                // 绘制右半部分 - 减小1px以避免缝隙
+                                resultCtx.drawImage(tempCanvas,
+                                    Math.floor(centerX), 0, frameWidth - Math.floor(centerX), frameHeight,
+                                    newWidth/2, 0, frameWidth - Math.floor(centerX), frameHeight);
                                 // 镜像绘制
                                 resultCtx.save();
                                 resultCtx.scale(-1, 1);
                                 resultCtx.drawImage(tempCanvas,
-                                    0, 0, centerX, frameHeight,
-                                    -newWidth, 0, centerX, frameHeight);
-                                resultCtx.restore();
-                                    break;
-                                case 'verticalRight':
-                                // 绘制右半部分（放在右半部分）
-                                resultCtx.drawImage(tempCanvas,
-                                    centerX, 0, frameWidth - centerX, frameHeight,
-                                    newWidth/2, 0, frameWidth - centerX, frameHeight);
-                                // 镜像绘制（放在左半部分）
-                                resultCtx.save();
-                                resultCtx.scale(-1, 1);
-                                resultCtx.drawImage(tempCanvas,
-                                    centerX, 0, frameWidth - centerX, frameHeight,
-                                    -newWidth/2, 0, frameWidth - centerX, frameHeight);
+                                    Math.floor(centerX), 0, frameWidth - Math.floor(centerX), frameHeight,
+                                    -newWidth/2, 0, frameWidth - Math.floor(centerX), frameHeight);
                                 resultCtx.restore();
                                     break;
                             }
