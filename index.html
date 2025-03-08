@@ -220,6 +220,22 @@
             }
         });
 
+        // 定义变量存储对称GIF的blob和URL
+        const symmetryGifBlobs = {
+            horizontalUp: null,
+            horizontalDown: null,
+            verticalLeft: null,
+            verticalRight: null
+        };
+
+        // 添加存储GIF URL的对象
+        const symmetryGifUrls = {
+            horizontalUp: null,
+            horizontalDown: null,
+            verticalLeft: null,
+            verticalRight: null
+        };
+
         // 修改 updatePreviews 函数
         function updatePreviews() {
             const ctxOriginal = originalCanvas.getContext('2d');
@@ -439,11 +455,28 @@
 
         // 清空所有预览的函数
         function clearAllPreviews() {
-            // 清空所有对称预览画布
+            // 清除所有GIF URL
+            Object.keys(symmetryGifUrls).forEach(key => {
+                if (symmetryGifUrls[key]) {
+                    URL.revokeObjectURL(symmetryGifUrls[key]);
+                    symmetryGifUrls[key] = null;
+                    symmetryGifBlobs[key] = null;
+                }
+            });
+            
+            // 移除所有GIF预览元素
+            document.querySelectorAll('.gif-preview').forEach(img => {
+                if (img.parentNode) {
+                    img.parentNode.removeChild(img);
+                }
+            });
+            
+            // 恢复所有画布可见性
             const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
             canvasIds.forEach(id => {
                 const canvas = document.getElementById(id);
                 if (canvas) {
+                    canvas.style.opacity = '1';
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
@@ -513,7 +546,7 @@
             }
         }
 
-        // 完全重写 generateSymmetry 函数，确保GIF处理正确
+        // 修改 generateSymmetry 函数，确保GIF动画效果保留
         function generateSymmetry(canvas, type) {
             if (!canvas) {
                 console.error('无效的画布元素');
@@ -560,11 +593,23 @@
                     canvas.width = newWidth;
                     canvas.height = newHeight;
                     
+                    // 显示加载提示
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = 'white';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('正在生成动画...', canvas.width/2, canvas.height/2);
+                    
                     // 创建GIF对象
                     const gif = new GIF({
                         workers: 2,
                         quality: 10,
                         workerScript: './gif.worker.js',
+                        width: newWidth,
+                        height: newHeight,
                         repeat: 0
                     });
 
@@ -590,8 +635,8 @@
                                     0, 0, frameWidth, centerY, 
                                     0, 0, frameWidth, centerY);
                                 // 镜像绘制
+                                resultCtx.translate(0, newHeight);
                                 resultCtx.scale(1, -1);
-                                resultCtx.translate(0, -newHeight);
                                 resultCtx.drawImage(tempCanvas,
                                     0, 0, frameWidth, centerY,
                                     0, 0, frameWidth, centerY);
@@ -603,7 +648,7 @@
                                     0, newHeight/2, frameWidth, frameHeight - centerY);
                                 // 镜像绘制
                                 resultCtx.scale(1, -1);
-                                resultCtx.translate(0, -newHeight/2);
+                                resultCtx.translate(0, -newHeight);
                                 resultCtx.drawImage(tempCanvas,
                                     0, centerY, frameWidth, frameHeight - centerY,
                                     0, 0, frameWidth, frameHeight - centerY);
@@ -627,7 +672,7 @@
                                     newWidth/2, 0, frameWidth - centerX, frameHeight);
                                 // 镜像绘制
                                 resultCtx.scale(-1, 1);
-                                resultCtx.translate(-newWidth/2, 0);
+                                resultCtx.translate(-newWidth, 0);
                                 resultCtx.drawImage(tempCanvas,
                                     centerX, 0, frameWidth - centerX, frameHeight,
                                     0, 0, frameWidth - centerX, frameHeight);
@@ -643,15 +688,42 @@
                         });
                     });
 
-                    // 当GIF生成完成时，替换画布内容
+                    // 当GIF生成完成时
                     gif.on('finished', function(blob) {
-                        const img = new Image();
-                        img.src = URL.createObjectURL(blob);
-                        img.onload = function() {
-                            const ctx = canvas.getContext('2d');
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 0, 0);
-                        };
+                        // 保存GIF blob以供下载
+                        symmetryGifBlobs[type] = blob;
+                        
+                        // 释放旧的URL
+                        if (symmetryGifUrls[type]) {
+                            URL.revokeObjectURL(symmetryGifUrls[type]);
+                        }
+                        
+                        // 创建新的URL
+                        symmetryGifUrls[type] = URL.createObjectURL(blob);
+                        
+                        // 获取预览容器
+                        const container = canvas.parentNode;
+                        if (!container) return;
+                        
+                        // 移除旧的img元素
+                        const oldImg = container.querySelector('.gif-preview');
+                        if (oldImg) {
+                            container.removeChild(oldImg);
+                        }
+                        
+                        // 创建新的img元素显示动态GIF
+                        const img = document.createElement('img');
+                        img.className = 'gif-preview';
+                        img.src = symmetryGifUrls[type];
+                        img.style.position = 'absolute';
+                        img.style.top = canvas.offsetTop + 'px';
+                        img.style.left = canvas.offsetLeft + 'px';
+                        img.style.width = canvas.width + 'px';
+                        img.style.height = canvas.height + 'px';
+                        container.appendChild(img);
+                        
+                        // 隐藏原始画布
+                        canvas.style.opacity = '0';
                     });
 
                     // 开始渲染GIF
@@ -866,22 +938,30 @@
             }
         }
 
-        // 下载图像
-        function downloadImage(canvasId, filename) {
-            const element = document.getElementById(canvasId) || document.getElementById(canvasId + 'Img');
-            if (!element) {
-                console.error('Element not found:', canvasId);
-                return;
-            }
+        // 修改 downloadImage 函数，支持动态GIF
+        function downloadImage(canvasId, fileName) {
+            const type = canvasId.replace('Canvas', '');
             
-            const link = document.createElement('a');
-            link.download = `${filename}.${isGif ? 'gif' : 'png'}`;
-            if (element.tagName === 'CANVAS') {
-                link.href = element.toDataURL('image/png');
+            if (isGif && symmetryGifBlobs[type]) {
+                // 直接使用已生成的GIF blob
+                const a = document.createElement('a');
+                a.href = symmetryGifUrls[type];
+                a.download = fileName + '.gif';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
             } else {
-                link.href = element.src;
+                // 静态图像下载逻辑不变
+                const canvas = document.getElementById(canvasId);
+                if (!canvas) return;
+                
+                const a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = fileName + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
             }
-            link.click();
         }
 
         // 修改 restoreCanvases 函数 - 彻底解决重复窗口问题
