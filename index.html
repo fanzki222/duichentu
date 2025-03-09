@@ -3,1112 +3,583 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>弱智对称图生成器</title>
+    <title>和弦学习工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-            margin: 0;
+            font-family: 'Arial', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 20px;
+            background-color: #f5f5f5;
         }
-        h1 {
+        h1, h2, h3 {
             color: #333;
-            margin-bottom: 20px;
         }
-        .upload-area {
-            width: 400px;
-            height: 200px;
-            border: 2px dashed #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #fff;
-            cursor: pointer;
-            margin-bottom: 20px;
-            text-align: center;
-            color: #666;
-        }
-        .upload-area.dragover {
-            background-color: #e0e0e0;
-            border-color: #999;
-        }
-        .preview-container {
+        .container {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
+        }
+        .section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            flex: 1;
+            min-width: 300px;
+        }
+        .piano {
+            display: flex;
+            height: 150px;
+            margin: 20px 0;
+            position: relative;
+            user-select: none;
+        }
+        .white-key {
+            flex: 1;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 0 0 5px 5px;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: flex-end;
             justify-content: center;
-        }
-        .preview-item {
-            text-align: center;
-        }
-        .preview-item canvas, .preview-item img {
-            border: 1px solid #ddd;
-            max-width: 300px;
-            max-height: 300px;
+            padding-bottom: 10px;
             cursor: pointer;
         }
-        .preview-item button {
-            margin: 5px;
-            padding: 5px 10px;
-            background-color: #007bff;
+        .black-key {
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            background-color: #333;
+            z-index: 2;
+            border-radius: 0 0 3px 3px;
+            cursor: pointer;
+        }
+        .white-key.active {
+            background-color: #a8d4ff;
+        }
+        .black-key.active {
+            background-color: #5a97cc;
+        }
+        .notes-input {
+            margin-top: 20px;
+        }
+        .notes-display {
+            height: 40px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        .chord-result {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .btn {
+            background-color: #4CAF50;
             color: white;
             border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
             cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .progression {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .progression:hover {
+            background-color: #e0e0e0;
+        }
+        .piano-roll {
+            height: 200px;
+            width: 100%;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            position: relative;
+            overflow: auto;
+            margin-top: 20px;
+        }
+        .note-block {
+            position: absolute;
+            background-color: #4CAF50;
+            border: 1px solid #45a049;
             border-radius: 3px;
         }
-        .preview-item button:hover {
-            background-color: #0056b3;
-        }
-        #originalCanvas {
-            cursor: crosshair;
-        }
-        .instructions {
-            max-width: 600px;
-            text-align: center;
-            color: #555;
-            margin-bottom: 20px;
-        }
-        .rotation-control {
+        table {
             width: 100%;
-            max-width: 400px;
-            margin: 20px auto;
-            text-align: center;
+            border-collapse: collapse;
+            margin-top: 20px;
         }
-        
-        .rotation-control input[type="range"] {
-            width: 100%;
-            margin: 10px 0;
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
         }
-        
-        .rotation-control .value-display {
-            font-size: 14px;
-            color: #666;
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
         }
     </style>
 </head>
 <body>
-    <h1>弱智对称图生成器</h1>
-    <div class="instructions">
-        点击下方区域选择图片，支持静态图片和GIF。上传后点击图片选择对称中心点。GIF文件不支持直接复制（垃圾Chrome）
+    <h1>和弦学习与识别工具</h1>
+    
+    <div class="container">
+        <div class="section">
+            <h2>钢琴键盘</h2>
+            <p>点击琴键或使用键盘输入音符 (A-K 对应 C-B, W,E,T,Y,U 对应黑键)</p>
+            <div class="piano" id="piano"></div>
+            
+            <div class="notes-input">
+                <h3>当前音符</h3>
+                <div class="notes-display" id="notes-display"></div>
+                <div class="chord-result" id="chord-result">请弹奏音符以识别和弦</div>
+                <button class="btn" id="clear-btn">清除音符</button>
+                <button class="btn" id="play-btn">播放</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>常用和弦类型</h2>
+            <table>
+                <tr>
+                    <th>和弦类型</th>
+                    <th>构成音程</th>
+                    <th>示例 (C为根音)</th>
+                </tr>
+                <tr>
+                    <td>大三和弦</td>
+                    <td>根音 + 大三度 + 纯五度</td>
+                    <td>C-E-G</td>
+                </tr>
+                <tr>
+                    <td>小三和弦</td>
+                    <td>根音 + 小三度 + 纯五度</td>
+                    <td>C-Eb-G</td>
+                </tr>
+                <tr>
+                    <td>增三和弦</td>
+                    <td>根音 + 大三度 + 增五度</td>
+                    <td>C-E-G#</td>
+                </tr>
+                <tr>
+                    <td>减三和弦</td>
+                    <td>根音 + 小三度 + 减五度</td>
+                    <td>C-Eb-Gb</td>
+                </tr>
+                <tr>
+                    <td>大七和弦</td>
+                    <td>根音 + 大三度 + 纯五度 + 大七度</td>
+                    <td>C-E-G-B</td>
+                </tr>
+                <tr>
+                    <td>属七和弦</td>
+                    <td>根音 + 大三度 + 纯五度 + 小七度</td>
+                    <td>C-E-G-Bb</td>
+                </tr>
+                <tr>
+                    <td>小七和弦</td>
+                    <td>根音 + 小三度 + 纯五度 + 小七度</td>
+                    <td>C-Eb-G-Bb</td>
+                </tr>
+                <tr>
+                    <td>半减七和弦</td>
+                    <td>根音 + 小三度 + 减五度 + 小七度</td>
+                    <td>C-Eb-Gb-Bb</td>
+                </tr>
+            </table>
+        </div>
     </div>
-    <div class="upload-area" id="uploadArea">
-        点击此处上传图片
+    
+    <div class="section">
+        <h2>常用和弦进行</h2>
+        <p>点击下面的和弦进行可以在钢琴卷帘上查看并播放</p>
+        
+        <div class="progression" data-progression="I-IV-V-I" data-key="C">
+            I-IV-V-I (C-F-G-C) 最常见的和弦进行
+        </div>
+        
+        <div class="progression" data-progression="I-V-vi-IV" data-key="C">
+            I-V-vi-IV (C-G-Am-F) 流行乐常用进行
+        </div>
+        
+        <div class="progression" data-progression="ii-V-I" data-key="C">
+            ii-V-I (Dm-G-C) 爵士乐常用进行
+        </div>
+        
+        <div class="progression" data-progression="I-vi-IV-V" data-key="C">
+            I-vi-IV-V (C-Am-F-G) 50年代进行
+        </div>
+        
+        <div class="progression" data-progression="vi-IV-I-V" data-key="C">
+            vi-IV-I-V (Am-F-C-G) 忧伤进行
+        </div>
+        
+        <h3>钢琴卷帘可视化</h3>
+        <div class="piano-roll" id="piano-roll"></div>
     </div>
-    <div class="rotation-control">
-        <div class="value-display">旋转角度: <span id="rotationValue">0</span>°</div>
-        <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1">
-    </div>
-    <input type="file" id="fileInput" accept="image/*" style="display: none;">
-    <div class="preview-container" id="previewContainer">
-        <div class="preview-item">
-            <canvas id="originalCanvas"></canvas>
-            <p>原始图片</p>
-        </div>
-        <div class="preview-item">
-            <canvas id="horizontalUpCanvas"></canvas>
-            <p>水平上对称</p>
-            <button onclick="copyImage('horizontalUpCanvas')">复制</button>
-            <button onclick="downloadImage('horizontalUpCanvas', 'horizontal_up')">下载</button>
-        </div>
-        <div class="preview-item">
-            <canvas id="horizontalDownCanvas"></canvas>
-            <p>水平下对称</p>
-            <button onclick="copyImage('horizontalDownCanvas')">复制</button>
-            <button onclick="downloadImage('horizontalDownCanvas', 'horizontal_down')">下载</button>
-        </div>
-        <div class="preview-item">
-            <canvas id="verticalLeftCanvas"></canvas>
-            <p>垂直左对称</p>
-            <button onclick="copyImage('verticalLeftCanvas')">复制</button>
-            <button onclick="downloadImage('verticalLeftCanvas', 'vertical_left')">下载</button>
-        </div>
-        <div class="preview-item">
-            <canvas id="verticalRightCanvas"></canvas>
-            <p>垂直右对称</p>
-            <button onclick="copyImage('verticalRightCanvas')">复制</button>
-            <button onclick="downloadImage('verticalRightCanvas', 'vertical_right')">下载</button>
-        </div>
-    </div>
-
-    <!-- 外部库 CDN 链接 -->
-    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
 
     <script>
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const originalCanvas = document.getElementById('originalCanvas');
-        const horizontalUpCanvas = document.getElementById('horizontalUpCanvas');
-        const horizontalDownCanvas = document.getElementById('horizontalDownCanvas');
-        const verticalLeftCanvas = document.getElementById('verticalLeftCanvas');
-        const verticalRightCanvas = document.getElementById('verticalRightCanvas');
-
-        let originalImage = new Image();
-        let centerX, centerY;
-        let isGif = false;
-        let gifFrames = [];
-        let arrayBuffer;
-        let originalGifData = null;
-        let currentRotation = 0;
-
-        // 添加滑块事件监听
-        const rotationSlider = document.getElementById('rotationSlider');
-        const rotationValue = document.getElementById('rotationValue');
-
-        rotationSlider.addEventListener('input', (e) => {
-            // 只有非GIF才更新角度预览
-            if (!isGif) {
-                currentRotation = parseInt(e.target.value);
-                rotationValue.textContent = currentRotation;
-                updateOriginalPreview(); // 只更新原图预览
-            } else {
-                // 如果是GIF，重置滑块到0
-                e.target.value = 0;
-                rotationValue.textContent = 0;
-                currentRotation = 0;
-            }
-        });
-
-        rotationSlider.addEventListener('change', (e) => {
-            // 只有非GIF才应用旋转
-            if (!isGif) {
-                currentRotation = parseInt(e.target.value);
-                updatePreviews();
-            } else {
-                // 如果是GIF，重置滑块到0
-                e.target.value = 0;
-                rotationValue.textContent = 0;
-                currentRotation = 0;
-            }
-        });
-
-        // 文件上传相关事件
-        uploadArea.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                processFile(e.target.files[0]);
-            }
-        });
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                processFile(file);
-            }
-        });
-
-        document.addEventListener('paste', (e) => {
-            const items = e.clipboardData.items;
-            for (let item of items) {
-                if (item.type.indexOf('image') !== -1) {
-                    const file = item.getAsFile();
-                    processFile(file);
-                    break;
-                }
-            }
-        });
-
-        // 定义变量存储对称GIF的blob和URL
-        const symmetryGifBlobs = {
-            horizontalUp: null,
-            horizontalDown: null,
-            verticalLeft: null,
-            verticalRight: null
+        // 初始化 Tone.js
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        
+        // 音符与频率的映射
+        const noteFrequencies = {
+            'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63,
+            'F': 349.23, 'F#': 369.99, 'G': 392.00, 'G#': 415.30, 'A': 440.00,
+            'A#': 466.16, 'B': 493.88
         };
-
-        // 添加存储GIF URL的对象
-        const symmetryGifUrls = {
-            horizontalUp: null,
-            horizontalDown: null,
-            verticalLeft: null,
-            verticalRight: null
+        
+        // 音符与键盘的映射
+        const keyboardMapping = {
+            'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E',
+            'f': 'F', 't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A',
+            'u': 'A#', 'j': 'B', 'k': 'C5'
         };
-
-        // 修改 updatePreviews 函数
-        function updatePreviews() {
-            const ctxOriginal = originalCanvas.getContext('2d');
+        
+        // 当前按下的音符
+        let activeNotes = [];
+        
+        // 创建钢琴键盘
+        const piano = document.getElementById('piano');
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C5'];
+        const whiteNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C5'];
+        const blackNotes = ['C#', 'D#', 'F#', 'G#', 'A#'];
+        
+        // 创建白键
+        whiteNotes.forEach((note, index) => {
+            const key = document.createElement('div');
+            key.className = 'white-key';
+            key.dataset.note = note;
+            key.textContent = note.replace('5', '');
+            piano.appendChild(key);
             
-            // 计算旋转后需要的画布大小
-            const angle = currentRotation * Math.PI / 180;
-            const cos = Math.abs(Math.cos(angle));
-            const sin = Math.abs(Math.sin(angle));
-            const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
-            const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
-            
-            // 调整画布大小
-            originalCanvas.width = newWidth;
-            originalCanvas.height = newHeight;
-            
-            // 绘制原始图像
-            ctxOriginal.save();
-            ctxOriginal.translate(newWidth/2, newHeight/2);
-            ctxOriginal.rotate(angle);
-            ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-            ctxOriginal.restore();
-            
-            // 只在原图上绘制中心点和对称轴
-            drawCenterPoint(ctxOriginal);
-
-            // 生成对称图像
-            const symmetryTypes = ['horizontalUp', 'horizontalDown', 'verticalLeft', 'verticalRight'];
-            symmetryTypes.forEach(type => {
-                const canvas = document.getElementById(type + 'Canvas');
-                if (canvas) {
-                    generateSymmetry(canvas, type);
+            key.addEventListener('mousedown', () => playNote(note));
+            key.addEventListener('mouseup', () => stopNote(note));
+            key.addEventListener('mouseleave', () => {
+                if (key.classList.contains('active')) {
+                    stopNote(note);
                 }
             });
-        }
-
-        // 修改 updateOriginalPreview 函数
-        function updateOriginalPreview() {
-            const ctxOriginal = originalCanvas.getContext('2d');
+        });
+        
+        // 创建黑键
+        blackNotes.forEach((note) => {
+            const key = document.createElement('div');
+            key.className = 'black-key';
+            key.dataset.note = note;
             
-            // 保存当前中心点相对位置（转换为相对坐标）
-            const relativeX = centerX / originalCanvas.width;
-            const relativeY = centerY / originalCanvas.height;
+            // 定位黑键
+            const position = whiteNotes.findIndex(n => n[0] === String.fromCharCode(note.charCodeAt(0) + 1));
+            const whiteKeyWidth = 100 / whiteNotes.length;
+            key.style.left = `${position * whiteKeyWidth - (whiteKeyWidth * 0.3)}%`;
             
-            // 计算旋转后需要的画布大小
-            const angle = currentRotation * Math.PI / 180;
-            const cos = Math.abs(Math.cos(angle));
-            const sin = Math.abs(Math.sin(angle));
-            const newWidth = Math.ceil(originalImage.width * cos + originalImage.height * sin);
-            const newHeight = Math.ceil(originalImage.width * sin + originalImage.height * cos);
+            piano.appendChild(key);
             
-            // 调整画布大小
-            originalCanvas.width = newWidth;
-            originalCanvas.height = newHeight;
-            
-            // 绘制旋转后的图像
-            ctxOriginal.save();
-            ctxOriginal.translate(newWidth/2, newHeight/2);
-            ctxOriginal.rotate(angle);
-            ctxOriginal.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-            ctxOriginal.restore();
-            
-            // 更新中心点位置（保持相对位置）
-            centerX = newWidth * relativeX;
-            centerY = newHeight * relativeY;
-            
-            // 重新绘制中心点
-            drawCenterPoint(ctxOriginal);
-        }
-
-        // 修改原始画布的点击事件处理
-        originalCanvas.addEventListener('click', (e) => {
-                const rect = originalCanvas.getBoundingClientRect();
-                const scaleX = originalCanvas.width / rect.width;
-                const scaleY = originalCanvas.height / rect.height;
-            
-            // 计算点击位置相对于画布的实际坐标
-                centerX = (e.clientX - rect.left) * scaleX;
-                centerY = (e.clientY - rect.top) * scaleY;
-                
-            // 更新预览
-            if (isGif && gifFrames.length > 0) {
-                // 处理GIF图像 - 不应用旋转
-                            const ctxOriginal = originalCanvas.getContext('2d');
-                ctxOriginal.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
-                            ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                            drawCenterPoint(ctxOriginal);
-                            
-                // 重新生成所有对称预览
-                updateSymmetryPreviews();
-                            } else {
-                // 处理静态图像 - 保持旋转状态
-                updateOriginalPreview();
-                // 更新对称图像
-                updateSymmetryPreviews();
+            key.addEventListener('mousedown', () => playNote(note));
+            key.addEventListener('mouseup', () => stopNote(note));
+            key.addEventListener('mouseleave', () => {
+                if (key.classList.contains('active')) {
+                    stopNote(note);
+                }
+            });
+        });
+        
+        // 键盘输入
+        document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (keyboardMapping[key] && !e.repeat) {
+                playNote(keyboardMapping[key]);
             }
         });
-
-        // 修改 drawCenterPoint 函数
-        function drawCenterPoint(ctx) {
-            const rect = ctx.canvas.getBoundingClientRect();
-            // 计算缩放比例，用于调整显示大小
-            const scaleX = ctx.canvas.width / rect.width;
-            const scaleY = ctx.canvas.height / rect.height;
-            const scale = Math.max(scaleX, scaleY);
+        
+        document.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (keyboardMapping[key]) {
+                stopNote(keyboardMapping[key]);
+            }
+        });
+        
+        // 播放音符
+        function playNote(note) {
+            const octave = note.includes('5') ? 5 : 4;
+            const noteName = note.replace('5', '') + octave;
             
-            ctx.save();
+            synth.triggerAttack(noteName);
             
-            // 设置虚线样式，根据缩放比例调整
-            const dashLength = Math.max(5, 5 * scale / 4);  // 最小5px，随缩放增大
-            ctx.setLineDash([dashLength]);
-            ctx.lineWidth = Math.max(2, scale / 8);  // 最小2px，随缩放增大
+            // 激活键盘按键
+            const keySelector = note.includes('#') ? 
+                `.black-key[data-note="${note}"]` : 
+                `.white-key[data-note="${note}"]`;
+            const key = document.querySelector(keySelector);
+            if (key) key.classList.add('active');
             
-            // 创建渐变色轴线，提高可见性
-            const verticalGradient = ctx.createLinearGradient(centerX, 0, centerX, ctx.canvas.height);
-            const horizontalGradient = ctx.createLinearGradient(0, centerY, ctx.canvas.width, centerY);
-            
-            // 设置渐变色
-            [verticalGradient, horizontalGradient].forEach(gradient => {
-                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');    // 红色
-                gradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.8)'); // 黄色
-                gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');    // 红色
-            });
-            
-            // 添加白色描边以提高对比度
-            // 绘制垂直对称轴
-            // 先绘制白色描边
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = Math.max(4, scale / 6);  // 更宽的白色描边
-            ctx.beginPath();
-            ctx.moveTo(centerX, 0);
-            ctx.lineTo(centerX, ctx.canvas.height);
-            ctx.stroke();
-            
-            // 再绘制彩色轴线
-            ctx.strokeStyle = verticalGradient;
-            ctx.lineWidth = Math.max(2, scale / 8);
-            ctx.beginPath();
-            ctx.moveTo(centerX, 0);
-            ctx.lineTo(centerX, ctx.canvas.height);
-            ctx.stroke();
-            
-            // 绘制水平对称轴
-            // 先绘制白色描边
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = Math.max(4, scale / 6);
-            ctx.beginPath();
-            ctx.moveTo(0, centerY);
-            ctx.lineTo(ctx.canvas.width, centerY);
-            ctx.stroke();
-            
-            // 再绘制彩色轴线
-            ctx.strokeStyle = horizontalGradient;
-            ctx.lineWidth = Math.max(2, scale / 8);
-            ctx.beginPath();
-            ctx.moveTo(0, centerY);
-            ctx.lineTo(ctx.canvas.width, centerY);
-            ctx.stroke();
-            
-            // 绘制中心点
-            // 先绘制白色外圈
-            ctx.setLineDash([]);  // 取消虚线
-            ctx.beginPath();
-            const outerRadius = Math.max(6, scale / 4);  // 外圈半径
-            ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'white';
-            ctx.fill();
-            
-            // 绘制内部红色圆点
-            ctx.beginPath();
-            const innerRadius = Math.max(4, scale / 6);  // 内圈半径
-            ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
-            ctx.fill();
-            
-            ctx.restore();
-        }
-
-        // 修改 drawRotatedImage 函数
-        function drawRotatedImage(ctx, source = null) {
-            const width = ctx.canvas.width;
-            const height = ctx.canvas.height;
-            
-            // 计算旋转后需要的画布大小
-            const angle = currentRotation * Math.PI / 180;
-            const cos = Math.abs(Math.cos(angle));
-            const sin = Math.abs(Math.sin(angle));
-            const newWidth = Math.ceil(width * cos + height * sin);
-            const newHeight = Math.ceil(width * sin + height * cos);
-            
-            // 创建临时画布，使用更大的尺寸以确保旋转后的图像完整显示
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = newWidth;
-            tempCanvas.height = newHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            // 清除并调整原画布大小
-            ctx.canvas.width = newWidth;
-            ctx.canvas.height = newHeight;
-            ctx.clearRect(0, 0, newWidth, newHeight);
-            
-            // 在临时画布上进行旋转
-            tempCtx.save();
-            tempCtx.translate(newWidth/2, newHeight/2);
-            tempCtx.rotate(angle);
-            tempCtx.drawImage(source || ctx.canvas, -width/2, -height/2);
-            tempCtx.restore();
-            
-            // 将结果绘制到原画布
-            ctx.drawImage(tempCanvas, 0, 0);
-            
-            return {
-                width: newWidth,
-                height: newHeight,
-                canvas: tempCanvas
-            };
-        }
-
-        // 清空所有预览的函数
-        function clearAllPreviews() {
-            // 清除所有GIF URL
-            Object.keys(symmetryGifUrls).forEach(key => {
-                if (symmetryGifUrls[key]) {
-                    URL.revokeObjectURL(symmetryGifUrls[key]);
-                    symmetryGifUrls[key] = null;
-                    symmetryGifBlobs[key] = null;
-                }
-            });
-            
-            // 移除所有GIF预览元素
-            document.querySelectorAll('.gif-preview').forEach(img => {
-                if (img.parentNode) {
-                    img.parentNode.removeChild(img);
-                }
-            });
-            
-            // 恢复所有画布可见性
-            const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
-            canvasIds.forEach(id => {
-                const canvas = document.getElementById(id);
-                if (canvas) {
-                    canvas.style.opacity = '1';
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                }
-            });
-            
-            // 重置GIF相关变量
-            gifFrames = [];
-        }
-
-        // 重写processFile函数，确保在切换图像类型时彻底清除旧状态
-        async function processFile(file) {
-            if (!file || !file.type.startsWith('image/')) {
-                alert('请上传图片文件！');
-                        return;
-                    }
-                    
-            // 清空所有预览
-            clearAllPreviews();
-            
-            // 读取文件判断类型
-            const arrayBuffer = await file.arrayBuffer();
-            const firstBytes = new Uint8Array(arrayBuffer.slice(0, 6));
-            const isActuallyGif = firstBytes[0] === 71 && firstBytes[1] === 73 && 
-                                 firstBytes[2] === 70 && firstBytes[3] === 56 && 
-                                 (firstBytes[4] === 55 || firstBytes[4] === 57) && 
-                                 firstBytes[5] === 97;
-
-            // 重置旋转角度
-            currentRotation = 0;
-            rotationSlider.value = "0";
-            rotationValue.textContent = "0";
-
-            // 设置图像类型
-            isGif = isActuallyGif || file.type === 'image/gif';
-
-            // 确保画布重置
-            initializeCanvases();
-
-            if (isGif) {
-                // 禁用旋转控制
-                rotationSlider.disabled = true;
-                rotationSlider.title = "GIF图片不支持旋转";
-                
-                // 处理GIF
-                originalGifData = new Uint8Array(arrayBuffer.slice(0));
-                processGIF(arrayBuffer);
-            } else {
-                // 启用旋转控制
-                rotationSlider.disabled = false;
-                rotationSlider.title = "";
-                
-                // 处理静态图片
-                originalImage.src = URL.createObjectURL(file);
-                originalImage.onload = () => {
-                    // 设置初始中心点
-                    centerX = originalImage.width / 2;
-                    centerY = originalImage.height / 2;
-                    
-                    // 设置原始画布尺寸
-                    originalCanvas.width = originalImage.width;
-                    originalCanvas.height = originalImage.height;
-                    
-                    // 更新预览
-                    updateOriginalPreview();
-                    updateSymmetryPreviews();
-                };
+            // 添加到当前音符列表（如果不存在）
+            if (!activeNotes.includes(note.replace('5', ''))) {
+                activeNotes.push(note.replace('5', ''));
+                updateNotesDisplay();
+                identifyChord();
             }
         }
-
-        // 修改 generateSymmetry 函数，确保GIF动画效果保留
-        function generateSymmetry(canvas, type) {
-            if (!canvas) {
-                console.error('无效的画布元素');
-                        return;
-                    }
-                    
-            if (isGif) {
-                // GIF处理
-                try {
-                    if (gifFrames.length === 0) {
-                        console.error('没有GIF帧可以处理');
-                        return;
-                    }
-
-                    // 取第一帧的尺寸作为参考
-                    const frameWidth = gifFrames[0].imageData.width;
-                    const frameHeight = gifFrames[0].imageData.height;
-
-                    // 根据对称类型计算新尺寸
-                    let newWidth, newHeight;
-                    switch (type) {
-                        case 'horizontalUp':
-                            newWidth = frameWidth;
-                            newHeight = centerY * 2;
-                            break;
-                        case 'horizontalDown':
-                            newWidth = frameWidth;
-                            newHeight = (frameHeight - centerY) * 2;
-                            break;
-                        case 'verticalLeft':
-                            newWidth = centerX * 2;
-                            newHeight = frameHeight;
-                            break;
-                        case 'verticalRight':
-                            newWidth = (frameWidth - centerX) * 2;
-                            newHeight = frameHeight;
-                            break;
-                        default:
-                            console.error('无效的对称类型');
-                            return;
-                    }
-                    
-                    // 设置画布尺寸
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
-                    
-                    // 显示加载提示
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = 'black';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = 'white';
-                    ctx.font = '16px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('正在生成动画...', canvas.width/2, canvas.height/2);
-                    
-                    // 创建GIF对象
-                    const gif = new GIF({
-                        workers: 2,
-                        quality: 10,
-                        workerScript: './gif.worker.js',
-                        width: newWidth,
-                        height: newHeight,
-                        repeat: 0
-                    });
-                    
-                    // 为每一帧创建对称效果
-                    gifFrames.forEach(frame => {
-                            const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = frameWidth;
-                        tempCanvas.height = frameHeight;
-                            const tempCtx = tempCanvas.getContext('2d');
-                        tempCtx.putImageData(frame.imageData, 0, 0);
-                        
-                        const resultCanvas = document.createElement('canvas');
-                        resultCanvas.width = newWidth;
-                        resultCanvas.height = newHeight;
-                        const resultCtx = resultCanvas.getContext('2d');
-                        
-                        // 根据对称类型应用对称效果
-                        resultCtx.save();
-                            switch (type) {
-                                case 'horizontalUp':
-                                // 绘制上半部分
-                                resultCtx.drawImage(tempCanvas, 
-                                    0, 0, frameWidth, Math.ceil(centerY), 
-                                    0, 0, frameWidth, Math.ceil(centerY));
-                                // 镜像绘制 - 增加1px重叠
-                                resultCtx.save();
-                                resultCtx.scale(1, -1);
-                                resultCtx.drawImage(tempCanvas,
-                                    0, 0, frameWidth, Math.ceil(centerY),
-                                    0, -newHeight, frameWidth, Math.ceil(centerY));
-                                resultCtx.restore();
-                                    break;
-                                case 'horizontalDown':
-                                // 绘制下半部分 - 减小1px以避免重叠
-                                resultCtx.drawImage(tempCanvas,
-                                    0, Math.floor(centerY), frameWidth, frameHeight - Math.floor(centerY),
-                                    0, newHeight/2, frameWidth, frameHeight - Math.floor(centerY));
-                                // 镜像绘制
-                                resultCtx.save();
-                                resultCtx.scale(1, -1);
-                                resultCtx.drawImage(tempCanvas,
-                                    0, Math.floor(centerY), frameWidth, frameHeight - Math.floor(centerY),
-                                    0, -newHeight/2, frameWidth, frameHeight - Math.floor(centerY));
-                                resultCtx.restore();
-                                    break;
-                                case 'verticalLeft':
-                                // 绘制左半部分
-                                resultCtx.drawImage(tempCanvas,
-                                    0, 0, Math.ceil(centerX), frameHeight,
-                                    0, 0, Math.ceil(centerX), frameHeight);
-                                // 镜像绘制 - 增加1px重叠
-                                resultCtx.save();
-                                resultCtx.scale(-1, 1);
-                                resultCtx.drawImage(tempCanvas,
-                                    0, 0, Math.ceil(centerX), frameHeight,
-                                    -newWidth, 0, Math.ceil(centerX), frameHeight);
-                                resultCtx.restore();
-                                    break;
-                                case 'verticalRight':
-                                // 绘制右半部分 - 减小1px以避免缝隙
-                                resultCtx.drawImage(tempCanvas,
-                                    Math.floor(centerX), 0, frameWidth - Math.floor(centerX), frameHeight,
-                                    newWidth/2, 0, frameWidth - Math.floor(centerX), frameHeight);
-                                // 镜像绘制
-                                resultCtx.save();
-                                resultCtx.scale(-1, 1);
-                                resultCtx.drawImage(tempCanvas,
-                                    Math.floor(centerX), 0, frameWidth - Math.floor(centerX), frameHeight,
-                                    -newWidth/2, 0, frameWidth - Math.floor(centerX), frameHeight);
-                                resultCtx.restore();
-                                    break;
-                            }
-                        resultCtx.restore();
-                        
-                        // 添加到GIF
-                        gif.addFrame(resultCanvas, {
-                            delay: frame.delay,
-                            copy: true,
-                            dispose: 2
-                        });
-                    });
-
-                    // 当GIF生成完成时
-                    gif.on('finished', function(blob) {
-                        // 保存GIF blob以供下载
-                        symmetryGifBlobs[type] = blob;
-                        
-                        // 释放旧的URL
-                        if (symmetryGifUrls[type]) {
-                            URL.revokeObjectURL(symmetryGifUrls[type]);
-                        }
-                        
-                        // 创建新的URL
-                        symmetryGifUrls[type] = URL.createObjectURL(blob);
-                        
-                        // 获取预览容器
-                        const container = canvas.parentNode;
-                        if (!container) return;
-                        
-                        // 移除旧的img元素
-                        const oldImg = container.querySelector('.gif-preview');
-                        if (oldImg) {
-                            container.removeChild(oldImg);
-                        }
-                        
-                        // 创建新的img元素显示动态GIF
-                        const img = document.createElement('img');
-                        img.className = 'gif-preview';
-                        img.src = symmetryGifUrls[type];
-                        img.style.position = 'absolute';
-                        img.style.top = canvas.offsetTop + 'px';
-                        img.style.left = canvas.offsetLeft + 'px';
-                        img.style.width = canvas.width + 'px';
-                        img.style.height = canvas.height + 'px';
-                        container.appendChild(img);
-                        
-                        // 隐藏原始画布
-                        canvas.style.opacity = '0';
-                    });
-
-                    // 开始渲染GIF
-                    gif.render();
-                    
-                } catch (error) {
-                    console.error('GIF对称处理出错:', error);
-                }
-            } else {
-                // 静态图像处理
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                applySymmetry(ctx, type);
-            }
-        }
-
-        // 修改 applySymmetry 函数
-        function applySymmetry(ctx, type) {
-            // 创建临时画布来存储没有对称轴的原图
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = originalCanvas.width;
-            tempCanvas.height = originalCanvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
+        
+        // 停止播放音符
+        function stopNote(note) {
+            const octave = note.includes('5') ? 5 : 4;
+            const noteName = note.replace('5', '') + octave;
             
-            // 重新绘制旋转后的原图（不包含对称轴和中心点）
-            tempCtx.save();
-            tempCtx.translate(tempCanvas.width/2, tempCanvas.height/2);
-            tempCtx.rotate(currentRotation * Math.PI / 180);
-            tempCtx.drawImage(originalImage, -originalImage.width/2, -originalImage.height/2);
-            tempCtx.restore();
+            synth.triggerRelease(noteName);
             
-            // 使用这个干净的画布作为源
-            const sourceCanvas = tempCanvas;
-            const sourceWidth = sourceCanvas.width;
-            const sourceHeight = sourceCanvas.height;
-
-            // 根据对称类型计算新的画布尺寸
-            let newWidth, newHeight;
-                switch (type) {
-                    case 'horizontalUp':
-                    newWidth = sourceWidth;
-                        newHeight = centerY * 2;
-                        break;
-                    case 'horizontalDown':
-                    newWidth = sourceWidth;
-                    newHeight = (sourceHeight - centerY) * 2;
-                        break;
-                    case 'verticalLeft':
-                        newWidth = centerX * 2;
-                    newHeight = sourceHeight;
-                        break;
-                    case 'verticalRight':
-                    newWidth = (sourceWidth - centerX) * 2;
-                    newHeight = sourceHeight;
-                        break;
-                }
-
-            // 调整目标画布尺寸
-            ctx.canvas.width = newWidth;
-            ctx.canvas.height = newHeight;
-
-            // 应用对称效果
-            ctx.save();
-            switch (type) {
-                case 'horizontalUp':
-                    // 绘制上半部分
-                    ctx.drawImage(sourceCanvas, 
-                        0, 0, sourceWidth, centerY,
-                        0, 0, sourceWidth, centerY);
-                    // 镜像绘制
-                    ctx.save();
-                    ctx.scale(1, -1);
-                    ctx.drawImage(sourceCanvas,
-                        0, 0, sourceWidth, centerY,
-                        0, -newHeight, sourceWidth, centerY);
-                    ctx.restore();
-                    break;
-                case 'horizontalDown':
-                    // 绘制下半部分（放在下半部分）
-                    ctx.drawImage(sourceCanvas,
-                        0, centerY, sourceWidth, sourceHeight - centerY,
-                        0, newHeight/2, sourceWidth, sourceHeight - centerY);
-                    // 镜像绘制（放在上半部分）
-                    ctx.save();
-                    ctx.scale(1, -1);
-                    ctx.drawImage(sourceCanvas,
-                        0, centerY, sourceWidth, sourceHeight - centerY,
-                        0, -newHeight/2, sourceWidth, sourceHeight - centerY);
-                    ctx.restore();
-                    break;
-                case 'verticalLeft':
-                    // 绘制左半部分
-                    ctx.drawImage(sourceCanvas,
-                        0, 0, centerX, sourceHeight,
-                        0, 0, centerX, sourceHeight);
-                    // 镜像绘制
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(sourceCanvas,
-                        0, 0, centerX, sourceHeight,
-                        -newWidth, 0, centerX, sourceHeight);
-                    ctx.restore();
-                    break;
-                case 'verticalRight':
-                    // 绘制右半部分（放在右半部分）
-                    ctx.drawImage(sourceCanvas,
-                        centerX, 0, sourceWidth - centerX, sourceHeight,
-                        newWidth/2, 0, sourceWidth - centerX, sourceHeight);
-                    // 镜像绘制（放在左半部分）
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(sourceCanvas,
-                        centerX, 0, sourceWidth - centerX, sourceHeight,
-                        -newWidth/2, 0, sourceWidth - centerX, sourceHeight);
-                    ctx.restore();
-                    break;
-            }
-            ctx.restore();
+            // 取消激活键盘按键
+            const keySelector = note.includes('#') ? 
+                `.black-key[data-note="${note}"]` : 
+                `.white-key[data-note="${note}"]`;
+            const key = document.querySelector(keySelector);
+            if (key) key.classList.remove('active');
         }
-
-        // 修改 processGIF 函数，在重新选择中心点后支持GIF预览更新
-        async function processGIF(arrayBuffer) {
-            try {
-                // 先清空之前的画布内容
-                const symmetryCanvases = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
-                symmetryCanvases.forEach(id => {
-                    const canvas = document.getElementById(id);
-                    if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-                });
-
-                // 确保画布元素存在
-                if (!restoreCanvases()) {
-                    console.error('无法恢复画布元素');
-                    return;
-                }
-                
-                // 清空之前的帧数据
-                gifFrames = [];
-                
-                const reader = new GifReader(new Uint8Array(arrayBuffer));
-                
-                const width = reader.width;
-                const height = reader.height;
-                
-                // 设置初始中心点
-                centerX = width / 2;
-                centerY = height / 2;
-                
-                // 设置原始画布尺寸
-                originalCanvas.width = width;
-                originalCanvas.height = height;
-                
-                const numFrames = reader.numFrames();
-                
-                // 读取所有帧
-                for (let i = 0; i < numFrames; i++) {
-                    const frameInfo = reader.frameInfo(i);
-                    const imageData = new ImageData(width, height);
-                    reader.decodeAndBlitFrameRGBA(i, imageData.data);
-                    gifFrames.push({ 
-                        imageData, 
-                        delay: frameInfo.delay * 10 
-                    });
-                }
-                
-                // 绘制第一帧
-                    const ctxOriginal = originalCanvas.getContext('2d');
-                ctxOriginal.clearRect(0, 0, width, height);
-                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                    drawCenterPoint(ctxOriginal);
-                
-                // 使用updateSymmetryPreviews而不是直接调用generateSymmetry
-                updateSymmetryPreviews();
-                
-            } catch (error) {
-                console.error('处理GIF时出错:', error);
-            }
+        
+        // 更新音符显示
+        function updateNotesDisplay() {
+            const display = document.getElementById('notes-display');
+            display.innerHTML = '';
+            
+            activeNotes.forEach(note => {
+                const noteElem = document.createElement('div');
+                noteElem.textContent = note;
+                noteElem.style.margin = '0 5px';
+                noteElem.style.padding = '5px 10px';
+                noteElem.style.backgroundColor = note.includes('#') ? '#333' : '#4CAF50';
+                noteElem.style.color = note.includes('#') ? 'white' : 'white';
+                noteElem.style.borderRadius = '3px';
+                display.appendChild(noteElem);
+            });
         }
-
-        // 修改 copyImage 函数，正确处理不同的图像类型
-        function copyImage(canvasId) {
-            const element = document.getElementById(canvasId) || document.getElementById(canvasId + 'Img');
-            if (!element) {
-                console.error('Element not found:', canvasId);
+        
+        // 和弦识别
+        function identifyChord() {
+            const result = document.getElementById('chord-result');
+            if (activeNotes.length < 2) {
+                result.textContent = "请至少输入两个音符以识别和弦";
                 return;
             }
             
-            if (element.tagName === 'CANVAS') {
-                // 对于画布元素，总是使用PNG格式
-                element.toBlob(blob => {
-                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-                        .then(() => alert('图片已复制到剪切板！'))
-                        .catch(err => alert('复制失败：' + err));
-                });
-            } else if (element.tagName === 'IMG') {
-                // 对于图片元素，需要判断是否为GIF
-                fetch(element.src)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        // 根据blob的实际类型创建正确的ClipboardItem
-                        const type = blob.type;
-                        const clipboardItem = {};
-                        clipboardItem[type] = blob;
-                        
-                        navigator.clipboard.write([new ClipboardItem(clipboardItem)])
-                            .then(() => alert('图片已复制到剪切板！'))
-                            .catch(err => alert('复制失败：' + err));
-                    })
-                    .catch(err => {
-                        console.error('获取图片blob时出错:', err);
-                        alert('复制失败：无法获取图片数据');
-                    });
-            }
-        }
-
-        // 修改 downloadImage 函数，支持动态GIF
-        function downloadImage(canvasId, fileName) {
-            const type = canvasId.replace('Canvas', '');
-            
-            if (isGif && symmetryGifBlobs[type]) {
-                // 直接使用已生成的GIF blob
-                const a = document.createElement('a');
-                a.href = symmetryGifUrls[type];
-                a.download = fileName + '.gif';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            } else {
-                // 静态图像下载逻辑不变
-                const canvas = document.getElementById(canvasId);
-                if (!canvas) return;
-                
-                const a = document.createElement('a');
-                a.href = canvas.toDataURL('image/png');
-                a.download = fileName + '.png';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-        }
-
-        // 修改 restoreCanvases 函数 - 彻底解决重复窗口问题
-        function restoreCanvases() {
-            try {
-                const previewContainer = document.getElementById('previewContainer');
-                if (!previewContainer) {
-                    console.error('找不到预览容器');
-                    return false;
-                }
-
-                // 清除所有对称预览项，然后重新创建
-                const allItems = previewContainer.querySelectorAll('.preview-item');
-                allItems.forEach(item => {
-                    const canvas = item.querySelector('canvas');
-                    if (canvas && canvas.id !== 'originalCanvas') {
-                        previewContainer.removeChild(item);
-                    }
-                });
-
-                // 只保留原始图片预览，重新创建其他预览
-                const canvasConfigs = [
-                    { id: 'horizontalUpCanvas', text: '水平上对称' },
-                    { id: 'horizontalDownCanvas', text: '水平下对称' },
-                    { id: 'verticalLeftCanvas', text: '垂直左对称' },
-                    { id: 'verticalRightCanvas', text: '垂直右对称' }
-                ];
-
-                for (const config of canvasConfigs) {
-                    const containerDiv = document.createElement('div');
-                    containerDiv.className = 'preview-item';
-                    
-                    const canvas = document.createElement('canvas');
-                    canvas.id = config.id;
-                    
-                    const p = document.createElement('p');
-                    p.textContent = config.text;
-                    
-                    const copyBtn = document.createElement('button');
-                    copyBtn.textContent = '复制';
-                    copyBtn.onclick = () => copyImage(config.id);
-                    
-                    const downloadBtn = document.createElement('button');
-                    downloadBtn.textContent = '下载';
-                    downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
-                    
-                    containerDiv.appendChild(canvas);
-                    containerDiv.appendChild(p);
-                    containerDiv.appendChild(copyBtn);
-                    containerDiv.appendChild(downloadBtn);
-                    
-                    previewContainer.appendChild(containerDiv);
-                }
-                
-                return true;
-            } catch (error) {
-                console.error('恢复画布时出错:', error);
-                return false;
-            }
-        }
-
-        // 修改 updateSymmetryPreviews 函数，支持GIF处理
-        function updateSymmetryPreviews() {
-            const canvasIds = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
-            
-            canvasIds.forEach(id => {
-                const canvas = document.getElementById(id);
-                if (canvas) {
-                    const type = id.replace('Canvas', '');
-                    if (isGif) {
-                        // 对于GIF，使用generateSymmetry处理
-                        generateSymmetry(canvas, type);
-            } else {
-                        // 对于静态图像，使用applySymmetry处理
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        applySymmetry(ctx, type);
-                    }
-                }
+            // 标准化音符（全部转为数值进行比较）
+            const noteValues = activeNotes.map(note => {
+                const noteLetter = note.replace('#', '')[0];
+                const isSharp = note.includes('#');
+                let value = "CDEFGAB".indexOf(noteLetter);
+                if (isSharp) value += 0.5;
+                return value;
             });
-        }
-
-        // 在页面加载时初始化预览窗口
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeCanvases();
-        });
-
-        // 彻底修复 restoreCanvases 函数 - 只在页面加载和切换图像类型时调用一次
-        function initializeCanvases() {
-            try {
-                const previewContainer = document.getElementById('previewContainer');
-                if (!previewContainer) {
-                    console.error('找不到预览容器');
-                    return false;
+            
+            // 排序并找出根音
+            noteValues.sort((a, b) => a - b);
+            const root = noteValues[0];
+            const rootNoteName = activeNotes.find(note => {
+                const noteLetter = note.replace('#', '')[0];
+                const isSharp = note.includes('#');
+                let value = "CDEFGAB".indexOf(noteLetter);
+                if (isSharp) value += 0.5;
+                return value === root;
+            });
+            
+            // 计算音程关系
+            const intervals = [];
+            for (let i = 1; i < noteValues.length; i++) {
+                let interval = noteValues[i] - root;
+                if (interval < 0) interval += 7; // 跨越八度
+                intervals.push(interval);
+            }
+            
+            // 识别和弦类型
+            let chordType = "未知和弦";
+            
+            // 三和弦
+            if (activeNotes.length === 3) {
+                if (intervals.includes(2) && intervals.includes(4)) {
+                    chordType = "大三和弦";
+                } else if (intervals.includes(1.5) && intervals.includes(4)) {
+                    chordType = "小三和弦";
+                } else if (intervals.includes(2) && intervals.includes(4.5)) {
+                    chordType = "增三和弦";
+                } else if (intervals.includes(1.5) && intervals.includes(3.5)) {
+                    chordType = "减三和弦";
                 }
-
-                // 清除现有的预览窗口（保留原图）
-                const existingCanvases = previewContainer.querySelectorAll('.preview-item:not(:first-child)');
-                existingCanvases.forEach(item => previewContainer.removeChild(item));
-
-                // 创建新的预览窗口
-                const canvasConfigs = [
-                    { id: 'horizontalUpCanvas', text: '水平上对称' },
-                    { id: 'horizontalDownCanvas', text: '水平下对称' },
-                    { id: 'verticalLeftCanvas', text: '垂直左对称' },
-                    { id: 'verticalRightCanvas', text: '垂直右对称' }
-                ];
-
-                for (const config of canvasConfigs) {
-                    const containerDiv = document.createElement('div');
-                    containerDiv.className = 'preview-item';
-                    
-                    const canvas = document.createElement('canvas');
-                    canvas.id = config.id;
-                    
-                    const p = document.createElement('p');
-                    p.textContent = config.text;
-                    
-                    const copyBtn = document.createElement('button');
-                    copyBtn.textContent = '复制';
-                    copyBtn.onclick = () => copyImage(config.id);
-                    
-                    const downloadBtn = document.createElement('button');
-                    downloadBtn.textContent = '下载';
-                    downloadBtn.onclick = () => downloadImage(config.id, config.id.toLowerCase());
-                    
-                    containerDiv.appendChild(canvas);
-                    containerDiv.appendChild(p);
-                    containerDiv.appendChild(copyBtn);
-                    containerDiv.appendChild(downloadBtn);
-                    
-                    previewContainer.appendChild(containerDiv);
+            }
+            
+            // 七和弦
+            if (activeNotes.length === 4) {
+                if (intervals.includes(2) && intervals.includes(4) && intervals.includes(5.5)) {
+                    chordType = "大七和弦";
+                } else if (intervals.includes(2) && intervals.includes(4) && intervals.includes(5)) {
+                    chordType = "属七和弦";
+                } else if (intervals.includes(1.5) && intervals.includes(4) && intervals.includes(5)) {
+                    chordType = "小七和弦";
+                } else if (intervals.includes(1.5) && intervals.includes(3.5) && intervals.includes(5)) {
+                    chordType = "半减七和弦";
+                } else if (intervals.includes(1.5) && intervals.includes(3.5) && intervals.includes(5.5)) {
+                    chordType = "减七和弦";
+                }
+            }
+            
+            result.textContent = `识别结果: ${rootNoteName} ${chordType}`;
+        }
+        
+        // 播放当前音符
+        document.getElementById('play-btn').addEventListener('click', () => {
+            if (activeNotes.length === 0) return;
+            
+            const notesToPlay = activeNotes.map(note => note.replace('5', '') + '4');
+            synth.triggerAttackRelease(notesToPlay, "2n");
+        });
+        
+        // 清除当前音符
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            activeNotes = [];
+            updateNotesDisplay();
+            document.getElementById('chord-result').textContent = "请弹奏音符以识别和弦";
+        });
+        
+        // 和弦进行功能
+        const pianoRoll = document.getElementById('piano-roll');
+        
+        document.querySelectorAll('.progression').forEach(prog => {
+            prog.addEventListener('click', () => {
+                displayProgression(prog.dataset.progression, prog.dataset.key);
+            });
+        });
+        
+        function displayProgression(progression, key) {
+            pianoRoll.innerHTML = '';
+            
+            // 解析和弦进行
+            const chords = progression.split('-');
+            const progressionChords = [];
+            
+            chords.forEach((chord, index) => {
+                let chordNotes = [];
+                const rootNote = getChordRoot(chord, key);
+                
+                // 基于和弦类型添加音符
+                if (chord.includes('m') || chord === 'ii' || chord === 'iii' || chord === 'vi') {
+                    // 小三和弦
+                    chordNotes = [rootNote, getNextNote(rootNote, 3), getNextNote(rootNote, 7)];
+                } else if (chord === 'I' || chord === 'IV' || chord === 'V') {
+                    // 大三和弦
+                    chordNotes = [rootNote, getNextNote(rootNote, 4), getNextNote(rootNote, 7)];
                 }
                 
-                return true;
-            } catch (error) {
-                console.error('初始化画布时出错:', error);
-                return false;
-            }
+                progressionChords.push({
+                    notes: chordNotes,
+                    position: index
+                });
+            });
+            
+            // 创建钢琴卷帘视图
+            createPianoRoll(progressionChords);
+            
+            // 播放和弦进行
+            playProgression(progressionChords);
+        }
+        
+        function getChordRoot(chord, key) {
+            const scaleNotes = {
+                'C': ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+                // 其他调可以根据需要添加
+            };
+            
+            const notes = scaleNotes[key];
+            
+            // 罗马数字到音阶音符的映射
+            if (chord.startsWith('I')) return notes[0];
+            if (chord.startsWith('ii')) return notes[1];
+            if (chord.startsWith('iii')) return notes[2];
+            if (chord.startsWith('IV')) return notes[3];
+            if (chord.startsWith('V')) return notes[4];
+            if (chord.startsWith('vi')) return notes[5];
+            if (chord.startsWith('vii')) return notes[6];
+            
+            // 直接返回和弦名称（如 "Am"）的根音
+            return chord.replace('m', '').replace('7', '');
+        }
+        
+        function getNextNote(note, semitones) {
+            const allNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const index = allNotes.indexOf(note);
+            return allNotes[(index + semitones) % 12];
+        }
+        
+        function createPianoRoll(chords) {
+            const allNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].reverse();
+            const chordWidth = 100;
+            
+            // 创建钢琴卷帘背景
+            allNotes.forEach((note, index) => {
+                const row = document.createElement('div');
+                row.className = 'piano-roll-row';
+                row.style.position = 'absolute';
+                row.style.left = '0';
+                row.style.right = '0';
+                row.style.height = '16px';
+                row.style.top = `${index * 16}px`;
+                row.style.backgroundColor = note.includes('#') ? '#e0e0e0' : '#f0f0f0';
+                row.style.borderBottom = '1px solid #ddd';
+                row.textContent = note;
+                row.style.fontSize = '10px';
+                row.style.paddingLeft = '2px';
+                pianoRoll.appendChild(row);
+            });
+            
+            // 添加和弦块
+            chords.forEach(chord => {
+                chord.notes.forEach(note => {
+                    const noteBlock = document.createElement('div');
+                    noteBlock.className = 'note-block';
+                    
+                    const noteIndex = allNotes.indexOf(note);
+                    noteBlock.style.top = `${noteIndex * 16}px`;
+                    noteBlock.style.left = `${chord.position * chordWidth + 30}px`;
+                    noteBlock.style.width = `${chordWidth - 10}px`;
+                    noteBlock.style.height = '15px';
+                    
+                    pianoRoll.appendChild(noteBlock);
+                });
+            });
+            
+            // 设置滚动内容大小
+            pianoRoll.style.width = `${chords.length * chordWidth + 50}px`;
+        }
+        
+        function playProgression(chords) {
+            Tone.Transport.cancel();
+            
+            const now = Tone.now();
+            let time = now;
+            
+            chords.forEach(chord => {
+                const notesToPlay = chord.notes.map(note => note + '4');
+                synth.triggerAttackRelease(notesToPlay, '2n', time);
+                time += 1;
+            });
         }
     </script>
 </body>
