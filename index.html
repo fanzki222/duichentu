@@ -848,25 +848,15 @@
             ctx.restore();
         }
 
-        // 修改 processGIF 函数，在重新选择中心点后支持GIF预览更新
+        // 修改 processGIF 函数，确保GIF处理为不透明
         async function processGIF(arrayBuffer) {
             try {
-                // 先清空之前的画布内容
-                const symmetryCanvases = ['horizontalUpCanvas', 'horizontalDownCanvas', 'verticalLeftCanvas', 'verticalRightCanvas'];
-                symmetryCanvases.forEach(id => {
-                    const canvas = document.getElementById(id);
-                    if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-                });
-
                 // 确保画布元素存在
                 if (!restoreCanvases()) {
                     console.error('无法恢复画布元素');
                     return;
                 }
-                
+
                 // 清空之前的帧数据
                 gifFrames = [];
                 
@@ -885,22 +875,34 @@
                 
                 const numFrames = reader.numFrames();
                 
-                // 读取所有帧
+                // 读取所有帧并转换为不透明
                 for (let i = 0; i < numFrames; i++) {
                     const frameInfo = reader.frameInfo(i);
                     const imageData = new ImageData(width, height);
                     reader.decodeAndBlitFrameRGBA(i, imageData.data);
+                    
+                    // 创建临时画布以处理透明度
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = width;
+                    tempCanvas.height = height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 确保绘制时不使用透明度
+                    tempCtx.globalAlpha = 1; // 设置为不透明
+                    tempCtx.putImageData(imageData, 0, 0);
+                    
+                    // 将处理后的图像数据存储到gifFrames中
                     gifFrames.push({ 
-                        imageData, 
-                        delay: frameInfo.delay * 10 
+                        imageData: tempCtx.getImageData(0, 0, width, height), 
+                        delay: frameInfo.delay * 10
                     });
                 }
                 
                 // 绘制第一帧
-                    const ctxOriginal = originalCanvas.getContext('2d');
+                const ctxOriginal = originalCanvas.getContext('2d');
                 ctxOriginal.clearRect(0, 0, width, height);
-                    ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
-                    drawCenterPoint(ctxOriginal);
+                ctxOriginal.putImageData(gifFrames[0].imageData, 0, 0);
+                drawCenterPoint(ctxOriginal);
                 
                 // 使用updateSymmetryPreviews而不是直接调用generateSymmetry
                 updateSymmetryPreviews();
