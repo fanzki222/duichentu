@@ -560,7 +560,7 @@
             }
         }
 
-        // 修改 generateSymmetry 函数，使用纯色背景处理GIF
+        // 完全重写 generateSymmetry 函数中的GIF处理部分
         function generateSymmetry(canvas, type) {
             if (!canvas) {
                 console.error('无效的画布元素');
@@ -606,9 +606,8 @@
                     canvas.width = newWidth;
                     canvas.height = newHeight;
                     
-                    // 显示加载提示
                     const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#f0f0f0'; // 使用浅灰色背景
+                    ctx.fillStyle = '#f0f0f0';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = 'black';
                     ctx.font = '16px Arial';
@@ -616,45 +615,35 @@
                     ctx.textBaseline = 'middle';
                     ctx.fillText('正在生成动画...', canvas.width/2, canvas.height/2);
                     
-                    // 创建一个新的GIF对象，使用纯色背景
+                    // 使用最简单的GIF配置
                     const gif = new GIF({
                         workers: 2,
                         quality: 10,
                         workerScript: './gif.worker.js',
                         width: newWidth,
                         height: newHeight,
-                        repeat: 0,
-                        background: '#ffffff', // 使用白色背景
-                        transparent: null // 不使用透明
+                        repeat: 0
                     });
+
+                    const intCenterX = Math.round(centerX);
+                    const intCenterY = Math.round(centerY);
 
                     // 处理每一帧
                     gifFrames.forEach(frame => {
-                        // 创建一个处理当前帧的临时画布
+                        // 创建一个临时画布
                         const tempCanvas = document.createElement('canvas');
                         tempCanvas.width = newWidth;
                         tempCanvas.height = newHeight;
                         const tempCtx = tempCanvas.getContext('2d');
                         
-                        // 填充白色背景
-                        tempCtx.fillStyle = '#ffffff';
-                        tempCtx.fillRect(0, 0, newWidth, newHeight);
-                        
-                        // 创建源画布，用于绘制当前帧
+                        // 创建一个画布来保存原始帧
                         const srcCanvas = document.createElement('canvas');
                         srcCanvas.width = frameWidth;
                         srcCanvas.height = frameHeight;
                         const srcCtx = srcCanvas.getContext('2d');
-                        
-                        // 在源画布上填充白色背景并绘制当前帧
-                        srcCtx.fillStyle = '#ffffff';
-                        srcCtx.fillRect(0, 0, frameWidth, frameHeight);
                         srcCtx.putImageData(frame.imageData, 0, 0);
                         
                         // 根据对称类型绘制
-                        const intCenterX = Math.round(centerX);
-                        const intCenterY = Math.round(centerY);
-                        
                         switch (type) {
                             case 'horizontalUp':
                                 // 上半部分
@@ -713,30 +702,24 @@
                         // 添加帧到GIF
                         gif.addFrame(tempCanvas, {
                             delay: frame.delay,
-                            copy: true,
-                            dispose: 1
+                            copy: true
                         });
                     });
 
                     // 当GIF生成完成时
                     gif.on('finished', function(blob) {
-                        // 保存GIF blob
                         symmetryGifBlobs[type] = blob;
                         
-                        // 释放旧的URL
                         if (symmetryGifUrls[type]) {
                             URL.revokeObjectURL(symmetryGifUrls[type]);
                         }
                         
-                        // 创建新的URL
                         symmetryGifUrls[type] = URL.createObjectURL(blob);
                         
-                        // 删除旧的预览图像
                         document.querySelectorAll(`.gif-preview-${type}`).forEach(img => {
                             if (img.parentNode) img.parentNode.removeChild(img);
                         });
                         
-                        // 创建新的图像显示
                         const img = document.createElement('img');
                         img.className = `gif-preview gif-preview-${type}`;
                         img.src = symmetryGifUrls[type];
@@ -746,7 +729,6 @@
                         img.style.width = '100%';
                         img.style.height = '100%';
                         
-                        // 获取预览容器
                         const container = canvas.parentNode;
                         if (container) {
                             container.style.position = 'relative';
